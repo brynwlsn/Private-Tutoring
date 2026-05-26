@@ -32,15 +32,6 @@ public class BackendServer {
 
         // 2. TAMBAHKAN INI UNTUK TEST MANUAL
     System.out.println("Mencoba koneksi manual ke database...");
-    try {
-        SiswaHandler handler = new SiswaHandler();
-        // Kamu bisa ganti data di bawah ini sesuai dengan kolom di database-mu
-        handler.simpanKeDatabase(99, 1, "Test Manual", "2000-01-01 00:00:00", "L", "08123456789", "test@mail.com", "pass123", "Alamat Test");
-        System.out.println("Koneksi sukses! Data berhasil disimpan secara manual.");
-    } catch (Exception e) {
-        System.err.println("Koneksi gagal! Pesan error: " + e.getMessage());
-        e.printStackTrace();
-    }
     }
 
     // Handler untuk memproses data yang dikirim oleh JavaScript
