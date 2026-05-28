@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   BookOpen, Calendar, Users, GraduationCap, Bell, Search,
   ChevronDown, Plus, X, Check, Clock, User, Phone, Mail,
@@ -20,7 +20,7 @@ interface Siswa { id: number; id_jenjang: number; nama: string; tanggal_lahir: s
 interface Admin { id: number; nama: string; email: string; no_hp: string; }
 interface KeahlianGuru { id: number; id_guru: number; id_mapel: number; id_jenjang: number; }
 interface JadwalKesediaan { id: number; id_keahlian: number; hari: string; jam_mulai: string; jam_selesai: string; }
-interface Les { id: number; id_siswa: number; id_jadwal: number; tanggal_mulai: string; tanggal_selesai: string; }
+interface Les { id: number; id_siswa: number; id_jadwal: number; tanggal_mulai: string; tanggal_selesai: string; durasi: number; }
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────
 const JENJANG: Jenjang[] = [
@@ -71,22 +71,20 @@ const KEAHLIAN: KeahlianGuru[] = [
 ];
 
 const JADWAL: JadwalKesediaan[] = [
-  { id: 1, id_keahlian: 1, hari: "Monday",    jam_mulai: "09:00", jam_selesai: "12:00" },
+  { id: 1, id_keahlian: 1, hari: "Monday", jam_mulai: "09:00", jam_selesai: "12:00" },
   { id: 2, id_keahlian: 1, hari: "Wednesday", jam_mulai: "13:00", jam_selesai: "16:00" },
-  { id: 3, id_keahlian: 2, hari: "Tuesday",   jam_mulai: "10:00", jam_selesai: "13:00" },
-  { id: 4, id_keahlian: 3, hari: "Monday",    jam_mulai: "14:00", jam_selesai: "17:00" },
-  { id: 5, id_keahlian: 3, hari: "Thursday",  jam_mulai: "08:00", jam_selesai: "11:00" },
-  { id: 6, id_keahlian: 5, hari: "Friday",    jam_mulai: "09:00", jam_selesai: "12:00" },
-  { id: 7, id_keahlian: 7, hari: "Saturday",  jam_mulai: "09:00", jam_selesai: "14:00" },
-  { id: 8, id_keahlian: 8, hari: "Sunday",    jam_mulai: "10:00", jam_selesai: "13:00" },
+  { id: 3, id_keahlian: 2, hari: "Tuesday", jam_mulai: "10:00", jam_selesai: "13:00" },
+  { id: 4, id_keahlian: 3, hari: "Monday", jam_mulai: "14:00", jam_selesai: "17:00" },
+  { id: 5, id_keahlian: 3, hari: "Thursday", jam_mulai: "08:00", jam_selesai: "11:00" },
+  { id: 6, id_keahlian: 5, hari: "Friday", jam_mulai: "09:00", jam_selesai: "12:00" },
+  { id: 7, id_keahlian: 7, hari: "Saturday", jam_mulai: "09:00", jam_selesai: "14:00" },
+  { id: 8, id_keahlian: 8, hari: "Sunday", jam_mulai: "10:00", jam_selesai: "13:00" },
 ];
 
 const LES_DATA: Les[] = [
-  { id: 1, id_siswa: 1, id_jadwal: 1, tanggal_mulai: "2025-01-20T09:00", tanggal_selesai: "2025-01-20T10:30" },
-  { id: 2, id_siswa: 3, id_jadwal: 2, tanggal_mulai: "2025-01-22T13:00", tanggal_selesai: "2025-01-22T15:00" },
-  { id: 3, id_siswa: 2, id_jadwal: 4, tanggal_mulai: "2025-01-20T14:00", tanggal_selesai: "2025-01-20T16:00" },
-  { id: 4, id_siswa: 5, id_jadwal: 5, tanggal_mulai: "2025-01-23T08:00", tanggal_selesai: "2025-01-23T09:30" },
+  { id: 4, id_siswa: 5, id_jadwal: 5, tanggal_mulai: "2025-01-23T08:00", tanggal_selesai: "2025-01-23T09:30", durasi: 90 }
 ];
+
 
 const HARI = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 const DAY_SHORT: Record<string, string> = {
@@ -246,7 +244,7 @@ function Sidebar({ role, page, setPage }: { role: Role; page: string; setPage: (
             <Layers size={16} className="text-white" />
           </div>
           <div>
-            <p className="text-white text-sm font-bold leading-tight">TutorPro</p>
+            <p className="text-white text-sm font-bold leading-tight">EduCAPY</p>
             <p className="text-white/40 text-xs leading-tight">{roleLabel}</p>
           </div>
         </div>
@@ -255,11 +253,10 @@ function Sidebar({ role, page, setPage }: { role: Role; page: string; setPage: (
         {items.map(({ icon: Icon, label, page: p }) => (
           <button
             key={p} onClick={() => setPage(p)}
-            className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-all text-left ${
-              page === p
-                ? "bg-white/10 text-white"
-                : "text-white/50 hover:text-white hover:bg-white/5"
-            }`}
+            className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-all text-left ${page === p
+              ? "bg-white/10 text-white"
+              : "text-white/50 hover:text-white hover:bg-white/5"
+              }`}
           >
             <Icon size={16} className="flex-shrink-0" />
             {label}
@@ -283,7 +280,7 @@ function TopBar({ role, setRole, globalSearch, setGlobalSearch, onLogout, logged
   const roleUser = {
     student: { name: loggedInName || "Rani Kusuma", badge: "Student" },
     teacher: { name: loggedInName || "Dr. Ayu Rahmawati", badge: "Teacher" },
-    admin:   { name: loggedInName || "Reza Firmansyah", badge: "Admin" },
+    admin: { name: loggedInName || "Reza Firmansyah", badge: "Admin" },
   }[role];
   return (
     <header className="h-14 bg-white border-b border-slate-200 flex items-center px-6 gap-4 sticky top-0 z-10">
@@ -328,7 +325,9 @@ const DAY_FULL: Record<string, string> = {
   Fri: "Friday", Sat: "Saturday", Sun: "Sunday",
 };
 
-function BookLesson() {
+// 1. Tambahkan parameter { loggedInId } di sini
+// Ubah baris ini agar mau menerima setActiveLessons dari App()
+function BookLesson({ loggedInId, setActiveLessons }: { loggedInId: number | null; setActiveLessons: React.Dispatch<React.SetStateAction<Les[]>> }) {
   const [step, setStep] = useState(1);
   const [selJenjang, setSelJenjang] = useState("");
   const [selMapel, setSelMapel] = useState("");
@@ -339,6 +338,8 @@ function BookLesson() {
   const [selDays, setSelDays] = useState<string[]>([]);
   const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
   const [booked, setBooked] = useState(false);
+  const [customJamMulai, setCustomJamMulai] = useState("");
+  const [customJamSelesai, setCustomJamSelesai] = useState("");
 
   const filteredMapel = MAPEL.filter((m) => m.id_jenjang === Number(selJenjang));
 
@@ -383,14 +384,55 @@ function BookLesson() {
     setSelDays((prev) => prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d]);
   }
 
-  function handleBook() {
+  async function handleBook() {
     if (!selJadwal || !startDate || !endDate || selDays.length === 0) return;
     if (bookedSlotIds.has(selJadwal)) {
       setToast({ msg: "Schedule overlapping or unavailable. Please choose another time.", type: "error" });
       return;
     }
-    setBooked(true);
-    setToast({ msg: "Recurring lesson booked successfully!", type: "success" });
+
+    // Ganti logika jamMulai dan jamSelesai lama di dalam handleBook menjadi ini:
+    const jamMulai = customJamMulai || selJadwalObj?.jam_mulai || "00:00";
+    const jamSelesai = customJamSelesai || selJadwalObj?.jam_selesai || "00:00";
+
+    // Hitung durasi otomatis dalam satuan menit
+    const menitMulai = timeToMinutes(jamMulai);
+    const menitSelesai = timeToMinutes(jamSelesai);
+    const hitungDurasi = menitSelesai - menitMulai; // Hasilnya berupa angka (menit)
+
+    const payload = {
+      id_siswa: loggedInId,
+      id_jadwal: selJadwal,
+      tanggal_mulai: `${startDate}T${jamMulai}`,
+      tanggal_selesai: `${startDate}T${jamSelesai}`,
+      durasi: hitungDurasi // <--- KIRIM DURASI KE BACKEND JAVA
+    };
+
+    try {
+      const response = await fetch("http://localhost:8080/api/les", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      const result = await response.json();
+
+      if (result.status === "sukses") {
+        setBooked(true);
+        setToast({ msg: "Lesson booked successfully with exact duration!", type: "success" });
+
+        // Trigger reload data les setelah sukses booking
+        if (loggedInId) {
+          fetch(`http://localhost:8080/api/les/siswa?id_siswa=${loggedInId}`)
+            .then((res) => res.json())
+            .then((data) => setActiveLessons(data));
+        }
+      } else {
+        setToast({ msg: "Database error: " + result.pesan, type: "error" });
+      }
+    } catch (error) {
+      setToast({ msg: "Server tidak merespon. Pastikan Backend Java berjalan.", type: "error" });
+    }
   }
 
   const summaryComplete = selJenjang && selMapel && selGuru && selJadwal && startDate && endDate && selDays.length > 0;
@@ -414,9 +456,8 @@ function BookLesson() {
           {["Education Level & Subject", "Choose Teacher", "Availability", "Schedule Details"].map((s, i) => (
             <div key={s} className="flex items-center flex-1 last:flex-none">
               <button onClick={() => setStep(i + 1)} className="flex items-center gap-2 group">
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 transition-all ${
-                  step > i + 1 ? "bg-emerald-500 text-white" : step === i + 1 ? "bg-[#4361EE] text-white" : "bg-slate-200 text-slate-500"
-                }`}>
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 transition-all ${step > i + 1 ? "bg-emerald-500 text-white" : step === i + 1 ? "bg-[#4361EE] text-white" : "bg-slate-200 text-slate-500"
+                  }`}>
                   {step > i + 1 ? <Check size={12} /> : i + 1}
                 </div>
                 <span className={`text-xs font-medium whitespace-nowrap ${step === i + 1 ? "text-[#4361EE]" : "text-slate-400"}`}>{s}</span>
@@ -502,13 +543,12 @@ function BookLesson() {
                     key={j.id}
                     onClick={() => { if (!isBooked) { setSelJadwal(j.id); setStep(4); } }}
                     disabled={isBooked}
-                    className={`p-3 border rounded-xl text-left transition-all relative ${
-                      isBooked
-                        ? "border-red-200 bg-red-50 cursor-not-allowed"
-                        : selJadwal === j.id
+                    className={`p-3 border rounded-xl text-left transition-all relative ${isBooked
+                      ? "border-red-200 bg-red-50 cursor-not-allowed"
+                      : selJadwal === j.id
                         ? "border-[#4361EE] bg-indigo-50 ring-1 ring-[#4361EE]/20 hover:border-[#4361EE]/50"
                         : "border-slate-200 hover:border-[#4361EE]/50 hover:bg-indigo-50/50"
-                    }`}
+                      }`}
                   >
                     <p className={`text-sm font-semibold ${isBooked ? "text-red-400" : "text-slate-700"}`}>{j.hari}</p>
                     <p className={`text-xs mt-1 flex items-center gap-1 ${isBooked ? "text-red-400" : "text-slate-500"}`}>
@@ -545,7 +585,28 @@ function BookLesson() {
               <Input label="Start Date" type="date" value={startDate} onChange={setStartDate} required />
               <Input label="End Date" type="date" value={endDate} onChange={setEndDate} min={startDate} required />
             </div>
-
+            {/* Pilihan Jam Kustom */}
+            <div className="grid grid-cols-2 gap-4 mt-3">
+              <Input
+                label="Jam Mulai Les (Pilihan)"
+                type="time"
+                value={customJamMulai}
+                onChange={setCustomJamMulai}
+                min={selJadwalObj?.jam_mulai}
+                max={selJadwalObj?.jam_selesai}
+              />
+              <Input
+                label="Jam Selesai Les (Pilihan)"
+                type="time"
+                value={customJamSelesai}
+                onChange={setCustomJamSelesai}
+                min={customJamMulai || selJadwalObj?.jam_mulai}
+                max={selJadwalObj?.jam_selesai}
+              />
+            </div>
+            <p className="text-xs text-amber-600 mt-1">
+              *Kosongkan jika ingin mengikuti jam default dari ketersediaan guru ({selJadwalObj?.jam_mulai} - {selJadwalObj?.jam_selesai}).
+            </p>
             {/* Subject (read-only display) */}
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium text-slate-600">Subject</label>
@@ -568,13 +629,12 @@ function BookLesson() {
                       type="button"
                       onClick={() => isAvail && toggleDay(d)}
                       disabled={!isAvail}
-                      className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
-                        !isAvail
-                          ? "border-slate-200 text-slate-300 bg-slate-50 cursor-not-allowed"
-                          : sel
+                      className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${!isAvail
+                        ? "border-slate-200 text-slate-300 bg-slate-50 cursor-not-allowed"
+                        : sel
                           ? "border-[#4361EE] bg-[#4361EE] text-white"
                           : "border-slate-300 text-slate-600 hover:border-[#4361EE] hover:text-[#4361EE]"
-                      }`}
+                        }`}
                     >
                       {d}
                     </button>
@@ -647,8 +707,9 @@ function SummaryRow({ icon, label, value }: { icon: React.ReactNode; label: stri
 }
 
 // ─── Page: My Lessons (Student) ────────────────────────────────────────────
-function MyLessons() {
-  const myLes = LES_DATA.filter((l) => l.id_siswa === 1);
+function MyLessons({ loggedInId, activeLessons }: { loggedInId: number | null; activeLessons: Les[] }) {
+  // Ganti LES_DATA menjadi activeLessons
+  const myLes = activeLessons;
   const [calMonth, setCalMonth] = useState(new Date(2025, 0));
 
   const lessDates = new Set(myLes.map((l) => l.tanggal_mulai.split("T")[0]));
@@ -686,20 +747,33 @@ function MyLessons() {
               </tr>
             </thead>
             <tbody>
-              {myLes.length === 0 && (
+              {/* 1. Pelindung kalau server Java ngirim error atau data kosong yang bukan array */}
+              {!Array.isArray(myLes) && (
+                <tr><td colSpan={6} className="px-5 py-8 text-center text-sm text-red-500">Gagal memuat data dari database. Pastikan server Java jalan.</td></tr>
+              )}
+
+              {/* 2. Tampilkan pesan kosong kalau datanya aman tapi memang belum ada les */}
+              {Array.isArray(myLes) && myLes.length === 0 && (
                 <tr><td colSpan={6} className="px-5 py-8 text-center text-sm text-slate-400">No lessons booked yet.</td></tr>
               )}
-              {myLes.map((les) => {
+
+              {/* 3. Lakukan proses map HANYA jika datanya terbukti aman (Array) */}
+              {Array.isArray(myLes) && myLes.map((les) => {
                 const jadwal = JADWAL.find((j) => j.id === les.id_jadwal)!;
                 const keahlian = KEAHLIAN.find((k) => k.id === jadwal?.id_keahlian)!;
                 const guru = GURU.find((g) => g.id === keahlian?.id_guru)!;
                 const mapel = MAPEL.find((m) => m.id === keahlian?.id_mapel)!;
-                const start = toHHMM(les.tanggal_mulai);
-                const end = toHHMM(les.tanggal_selesai);
-                const dur = ((timeToMinutes(end) - timeToMinutes(start)) / 60).toFixed(1);
+
+                // --- VERSI AMAN (TAHAN BANTING) ---
+                const start = les.tanggal_mulai?.includes("T") ? les.tanggal_mulai.split("T")[1].substring(0, 5) : "00:00";
+                const end = les.tanggal_selesai?.includes("T") ? les.tanggal_selesai.split("T")[1].substring(0, 5) : "00:00";
+                const dur = les.durasi ? (les.durasi / 60).toFixed(1) : "0";
+
                 const now = new Date();
                 const lesDate = new Date(les.tanggal_mulai);
                 const status = lesDate < now ? "Completed" : "Upcoming";
+
+                // ---> INI DIA TERSANGKANYA, KATA RETURN HARUS ADA! <---
                 return (
                   <tr key={les.id} className="border-b border-slate-50 hover:bg-slate-50/80 transition-colors">
                     <td className="px-5 py-3.5"><span className="font-medium text-slate-800">{mapel?.nama}</span></td>
@@ -709,11 +783,13 @@ function MyLessons() {
                         <span className="text-slate-600">{guru?.nama}</span>
                       </div>
                     </td>
-                    <td className="px-5 py-3.5 text-slate-600">{formatDate(les.tanggal_mulai)}</td>
-                    <td className="px-5 py-3.5 text-slate-600">{start} – {end}</td>
-                    <td className="px-5 py-3.5 text-slate-600">{dur}h</td>
+                    <td className="px-5 py-3.5 text-slate-600">
+                      {les.tanggal_mulai ? formatDate(les.tanggal_mulai) : "-"}
+                    </td>
+                    <td className="px-5 py-3.5 text-slate-600">{start} - {end}</td>
+                    <td className="px-5 py-3.5 text-slate-600">{dur} hrs</td>
                     <td className="px-5 py-3.5">
-                      <Badge label={status} variant={status === "Completed" ? "success" : "info"} />
+                      <Badge label={status} variant={status === "Completed" ? "success" : "warning"} />
                     </td>
                   </tr>
                 );
@@ -733,7 +809,7 @@ function MyLessons() {
             </div>
           </div>
           <div className="grid grid-cols-7 gap-0.5 text-center mb-1">
-            {["Su","Mo","Tu","We","Th","Fr","Sa"].map((d) => (
+            {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((d) => (
               <div key={d} className="text-xs text-slate-400 font-medium py-1">{d}</div>
             ))}
           </div>
@@ -776,8 +852,14 @@ function TeacherAvailability() {
 
   function handleAdd() {
     if (!hari || !jamMulai || !jamSelesai || !selKeahlian) return;
+
+    // Input type="time" otomatis menghasilkan format "HH:MM" (24 jam) yang aman untuk SQL Server
     const newJ: JadwalKesediaan = {
-      id: Date.now(), id_keahlian: Number(selKeahlian), hari, jam_mulai: jamMulai, jam_selesai: jamSelesai,
+      id: Date.now(),
+      id_keahlian: Number(selKeahlian),
+      hari,
+      jam_mulai: jamMulai, // Format: "14:30" (setara 02:30 PM)
+      jam_selesai: jamSelesai,
     };
     setAvailList((p) => [...p, newJ]);
     setToast("Availability window added!");
@@ -1000,49 +1082,49 @@ function AdminStudents({ search }: { search: string }) {
   function openAdd() { setForm({}); setEditItem(null); setDrawer("add"); }
   function openEdit(s: Siswa) { setForm(s); setEditItem(s); setDrawer("edit"); }
   function handleDelete(id: number) { setStudents((p) => p.filter((s) => s.id !== id)); }
-function handleSave() {
-  if (drawer === "add") {
-    // 1. Siapkan data yang mau dikirim, sesuaikan nama kolomnya dengan Java & SQL
-    const newId = Math.floor(Math.random() * 10000); // Simulasi ID unik
-    const dataSiswaBaru = {
-      id_siswa: newId,
-      id_jenjang: Number(form.id_jenjang),
-      nama: form.nama,
-      tanggal_lahir: form.tanggal_lahir,
-      jenis_Kelamin: form.jenis_kelamin,
-      no_hp: form.no_hp,
-      email: form.email,
-      pswrd: "siswa123", // Password default
-      alamat: form.alamat || "Belum diisi" // Data dari input alamat
-    };
+  function handleSave() {
+    if (drawer === "add") {
+      // 1. Siapkan data yang mau dikirim, sesuaikan nama kolomnya dengan Java & SQL
+      const newId = Math.floor(Math.random() * 10000); // Simulasi ID unik
+      const dataSiswaBaru = {
+        id_siswa: newId,
+        id_jenjang: Number(form.id_jenjang),
+        nama: form.nama,
+        tanggal_lahir: form.tanggal_lahir,
+        jenis_Kelamin: form.jenis_kelamin,
+        no_hp: form.no_hp,
+        email: form.email,
+        pswrd: "siswa123", // Password default
+        alamat: form.alamat || "Belum diisi" // Data dari input alamat
+      };
 
-    // 2. Tembakkan datanya ke server Java
-    fetch("http://localhost:8080/api/siswa", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(dataSiswaBaru),
-    })
-      .then((response) => response.json())
-      .then((data) => {
-        if (data.status === "sukses") {
-          // 3. Jika Java bilang sukses, baru update tampilan UI tabelnya
-          setStudents((p) => [...p, { ...form, id: newId } as Siswa]);
-          alert("Sukses! Data " + form.nama + " tersimpan di Azure SQL.");
-        } else {
-          alert("Gagal menyimpan ke database: " + data.pesan);
-        }
+      // 2. Tembakkan datanya ke server Java
+      fetch("http://localhost:8080/api/siswa", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(dataSiswaBaru),
       })
-      .catch((error) => {
-        console.error(error);
-        alert("Gagal koneksi ke Back-End. Pastikan BackendServer.java menyala!");
-      });
+        .then((response) => response.json())
+        .then((data) => {
+          if (data.status === "sukses") {
+            // 3. Jika Java bilang sukses, baru update tampilan UI tabelnya
+            setStudents((p) => [...p, { ...form, id: newId } as Siswa]);
+            alert("Sukses! Data " + form.nama + " tersimpan di Azure SQL.");
+          } else {
+            alert("Gagal menyimpan ke database: " + data.pesan);
+          }
+        })
+        .catch((error) => {
+          console.error(error);
+          alert("Gagal koneksi ke Back-End. Pastikan BackendServer.java menyala!");
+        });
 
-  } else if (editItem) {
-    // Logika untuk Edit data (Nanti bisa diarahkan ke fungsi UPDATE SQL)
-    setStudents((p) => p.map((s) => s.id === editItem.id ? { ...s, ...form } as Siswa : s));
+    } else if (editItem) {
+      // Logika untuk Edit data (Nanti bisa diarahkan ke fungsi UPDATE SQL)
+      setStudents((p) => p.map((s) => s.id === editItem.id ? { ...s, ...form } as Siswa : s));
+    }
+    setDrawer(null);
   }
-  setDrawer(null);
-}
   function toggleSort(f: keyof Siswa) {
     if (sortField === f) setSortDir((d) => d === "asc" ? "desc" : "asc");
     else { setSortField(f); setSortDir("asc"); }
@@ -1070,7 +1152,7 @@ function handleSave() {
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-slate-50 border-b border-slate-100">
-              {[["nama","Name"],["id_jenjang","Level"],["jenis_kelamin","Gender"],["tanggal_lahir","Date of Birth"],["email","Email"],["no_hp","Phone"]].map(([f, h]) => (
+              {[["nama", "Name"], ["id_jenjang", "Level"], ["jenis_kelamin", "Gender"], ["tanggal_lahir", "Date of Birth"], ["email", "Email"], ["no_hp", "Phone"]].map(([f, h]) => (
                 <th key={f} className="px-5 py-3 text-left">
                   <button onClick={() => toggleSort(f as keyof Siswa)} className="flex items-center gap-1 text-xs font-semibold text-slate-500 uppercase tracking-wider hover:text-slate-700 transition-colors">
                     {h}<ArrowUpDown size={11} className="text-slate-400" />
@@ -1119,7 +1201,7 @@ function handleSave() {
               <Select label="Jenjang" value={String(form.id_jenjang ?? "")} onChange={(v) => setForm((p) => ({ ...p, id_jenjang: Number(v) }))}
                 options={JENJANG.map((j) => ({ value: String(j.id), label: j.nama }))} placeholder="Select jenjang" required />
               <Select label="Jenis Kelamin" value={form.jenis_kelamin ?? ""} onChange={(v) => setForm((p) => ({ ...p, jenis_kelamin: v }))}
-                options={[{value:"L",label:"Male"},{value:"P",label:"Female"}]} placeholder="Select gender" required />
+                options={[{ value: "L", label: "Male" }, { value: "P", label: "Female" }]} placeholder="Select gender" required />
               <Input label="Date of Birth" type="date" value={form.tanggal_lahir ?? ""} onChange={(v) => setForm((p) => ({ ...p, tanggal_lahir: v }))} required />
               <Input label="Email" type="email" value={form.email ?? ""} onChange={(v) => setForm((p) => ({ ...p, email: v }))} required />
               <Input label="Phone Number" value={form.no_hp ?? ""} onChange={(v) => setForm((p) => ({ ...p, no_hp: v }))} required />
@@ -1173,7 +1255,7 @@ function AdminTeachers({ search }: { search: string }) {
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-slate-50 border-b border-slate-100">
-              {["Name","Email","Phone","Expertise","Actions"].map((h) => (
+              {["Name", "Email", "Phone", "Expertise", "Actions"].map((h) => (
                 <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">{h}</th>
               ))}
             </tr>
@@ -1273,7 +1355,7 @@ function AdminAdmins({ search }: { search: string }) {
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-slate-50 border-b border-slate-100">
-              {["Name","Email","Phone","Role"].map((h) => (
+              {["Name", "Email", "Phone", "Role"].map((h) => (
                 <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">{h}</th>
               ))}
             </tr>
@@ -1320,12 +1402,14 @@ function AdminAdmins({ search }: { search: string }) {
 }
 
 // ─── Dashboard Summary Pages ──────────────────────────────────────────────
-function StudentDashboard({ setPage }: { setPage: (p: string) => void }) {
-  const myLes = LES_DATA.filter((l) => l.id_siswa === 1);
+function StudentDashboard({ setPage, loggedInName, loggedInId, activeLessons }: { setPage: (p: string) => void; loggedInName: string; loggedInId: number | null; activeLessons: Les[] }) {
+  // Ganti LES_DATA menjadi activeLessons
+  const myLes = activeLessons;
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-bold text-slate-800">Welcome back, Rani!</h1>
+        {/* Nama dashboard berubah dinamis sesuai yang login */}
+        <h1 className="text-xl font-bold text-slate-800">Welcome back, {loggedInName || "Siswa"}!</h1>
         <p className="text-sm text-slate-500 mt-0.5">Here is an overview of your tutoring activity.</p>
       </div>
       <div className="grid grid-cols-3 gap-5">
@@ -1422,7 +1506,7 @@ function AdminDashboard() {
     <div className="space-y-6">
       <div>
         <h1 className="text-xl font-bold text-slate-800">Admin Dashboard</h1>
-        <p className="text-sm text-slate-500 mt-0.5">Platform-wide overview of TutorPro.</p>
+        <p className="text-sm text-slate-500 mt-0.5">Platform-wide overview of EduCapy.</p>
       </div>
       <div className="grid grid-cols-4 gap-5">
         {[
@@ -1482,36 +1566,61 @@ function AdminDashboard() {
 
 // ─── Mock credentials ─────────────────────────────────────────────────────
 const MOCK_ACCOUNTS = [
-  { email: "rani@mail.com",    password: "student123", role: "student" as Role, nama: "Rani Kusuma" },
-  { email: "ayu@tutor.id",     password: "teacher123", role: "teacher" as Role, nama: "Dr. Ayu Rahmawati" },
-  { email: "reza@tutor.id",    password: "admin123",   role: "admin"   as Role, nama: "Reza Firmansyah" },
+  { email: "rani@mail.com", password: "student123", role: "student" as Role, nama: "Rani Kusuma" },
+  { email: "ayu@tutor.id", password: "teacher123", role: "teacher" as Role, nama: "Dr. Ayu Rahmawati" },
+  { email: "reza@tutor.id", password: "admin123", role: "admin" as Role, nama: "Reza Firmansyah" },
 ];
 
 // ─── Auth: Login Page ─────────────────────────────────────────────────────
 function LoginPage({
   onLogin, onGoRegister,
-}: { onLogin: (role: Role, nama: string) => void; onGoRegister: () => void }) {
+}: { onLogin: (role: Role, nama: string, id: number) => void; onGoRegister: () => void }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPwd, setShowPwd] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
     setLoading(true);
-    setTimeout(() => {
-      const account = MOCK_ACCOUNTS.find(
-        (a) => a.email === email && a.password === password
-      );
-      if (account) {
-        onLogin(account.role, account.nama);
+
+    // 1. CEK MOCK ACCOUNT DULU
+    // Kamu bisa biarkan array MOCK_ACCOUNTS yang sudah ada, atau hardcode langsung seperti ini:
+    const mockAccount = MOCK_ACCOUNTS.find(
+      (a) => a.email === email && a.password === password
+    );
+
+    if (mockAccount) {
+      // Kalau cocok dengan mock account, langsung login (kasih delay dikit biar natural)
+      setTimeout(() => {
+        onLogin(mockAccount.role, mockAccount.nama, 1);
+        setLoading(false);
+      }, 500);
+      return; // Berhenti di sini, kode di bawahnya tidak akan dieksekusi
+    }
+
+    // 2. KALAU BUKAN MOCK ACCOUNT, BARU CEK KE DATABASE ASLI (JAVA)
+    try {
+      const response = await fetch("http://localhost:8080/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email, password: password }),
+      });
+
+      const result = await response.json();
+
+      if (result.status === "sukses") {
+        onLogin(result.role as Role, result.nama, result.id);
       } else {
-        setError("Invalid email or password. Please try again.");
+        setError(result.pesan || "Invalid email or password. Please try again.");
       }
+    } catch (err) {
+      setError("Tidak bisa terhubung ke server. Pastikan Java sudah jalan.");
+    } finally {
       setLoading(false);
-    }, 600);
+    }
   }
 
   return (
@@ -1522,7 +1631,7 @@ function LoginPage({
           <div className="w-9 h-9 bg-[#4361EE] rounded-xl flex items-center justify-center">
             <Layers size={18} className="text-white" />
           </div>
-          <span className="text-white text-lg font-bold tracking-tight">TutorPro</span>
+          <span className="text-white text-lg font-bold tracking-tight">EduCAPY</span>
         </div>
         <div className="space-y-6">
           <div className="space-y-3">
@@ -1536,10 +1645,10 @@ function LoginPage({
           </div>
           <div className="grid grid-cols-2 gap-3">
             {[
-              { icon: BookOpen,   label: "Easy Booking",     sub: "Step-by-step lesson booking" },
-              { icon: Calendar,   label: "Smart Scheduling", sub: "Overlap detection built-in" },
-              { icon: Users,      label: "Multi-role",       sub: "Student, Teacher & Admin" },
-              { icon: Shield,     label: "Secure Access",    sub: "Role-based permissions" },
+              { icon: BookOpen, label: "Easy Booking", sub: "Step-by-step lesson booking" },
+              { icon: Calendar, label: "Smart Scheduling", sub: "Overlap detection built-in" },
+              { icon: Users, label: "Multi-role", sub: "Student, Teacher & Admin" },
+              { icon: Shield, label: "Secure Access", sub: "Role-based permissions" },
             ].map(({ icon: Icon, label, sub }) => (
               <div key={label} className="bg-white/5 rounded-xl p-4 border border-white/10">
                 <Icon size={18} className="text-[#4361EE] mb-2" />
@@ -1549,7 +1658,7 @@ function LoginPage({
             ))}
           </div>
         </div>
-        <p className="text-white/20 text-xs">© 2025 TutorPro. All rights reserved.</p>
+        <p className="text-white/20 text-xs">© 2026 EduCAPY. All rights reserved.</p>
       </div>
 
       {/* Right panel */}
@@ -1560,7 +1669,7 @@ function LoginPage({
             <div className="w-8 h-8 bg-[#4361EE] rounded-xl flex items-center justify-center">
               <Layers size={16} className="text-white" />
             </div>
-            <span className="text-slate-800 text-base font-bold">TutorPro</span>
+            <span className="text-slate-800 text-base font-bold">EduCAPY</span>
           </div>
 
           <div>
@@ -1635,15 +1744,44 @@ function RegisterPage({
     setStep(2);
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setDone(true);
+    setError("");
+
+    const dataRegistrasi = {
+      role: role,
+      nama: form.nama,
+      email: form.email,
+      password: form.password,
+      no_hp: form.no_hp,
+      tanggal_lahir: form.tanggal_lahir,
+      jenis_kelamin: form.jenis_kelamin,
+      id_jenjang: form.id_jenjang
+    };
+
+    try {
+      const response = await fetch("http://localhost:8080/api/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(dataRegistrasi),
+      });
+
+      const result = await response.json();
+
+      if (result.status === "sukses") {
+        setDone(true);
+      } else {
+        setError("Gagal menyimpan ke database: " + result.pesan);
+      }
+    } catch (err) {
+      setError("Tidak bisa terhubung ke server. Pastikan Java sudah jalan.");
+    }
   }
 
   const roleColors: Record<Role, string> = {
     student: "border-sky-400 bg-sky-50 text-sky-700",
     teacher: "border-violet-400 bg-violet-50 text-violet-700",
-    admin:   "border-indigo-400 bg-indigo-50 text-indigo-700",
+    admin: "border-indigo-400 bg-indigo-50 text-indigo-700",
   };
 
   if (done) {
@@ -1671,10 +1809,10 @@ function RegisterPage({
           <div className="w-9 h-9 bg-[#4361EE] rounded-xl flex items-center justify-center">
             <Layers size={18} className="text-white" />
           </div>
-          <span className="text-white text-lg font-bold">TutorPro</span>
+          <span className="text-white text-lg font-bold">EduCAPY</span>
         </div>
         <div className="space-y-5">
-          <h2 className="text-3xl font-bold text-white leading-snug">Join TutorPro today.</h2>
+          <h2 className="text-3xl font-bold text-white leading-snug">Join EduCAPY today.</h2>
           <p className="text-white/50 text-sm leading-relaxed">
             Create your account and start managing your learning or teaching journey with ease.
           </p>
@@ -1682,7 +1820,7 @@ function RegisterPage({
             {[
               { step: "1", label: "Choose your role", sub: "Student, Teacher, or Admin" },
               { step: "2", label: "Fill in your details", sub: "Basic info and credentials" },
-              { step: "3", label: "Start using TutorPro", sub: "Book lessons or manage schedules" },
+              { step: "3", label: "Start using Educapy", sub: "Book lessons or manage schedules" },
             ].map(({ step: s, label, sub }) => (
               <div key={s} className="flex items-start gap-3">
                 <div className="w-6 h-6 bg-[#4361EE]/20 border border-[#4361EE]/30 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -1696,7 +1834,7 @@ function RegisterPage({
             ))}
           </div>
         </div>
-        <p className="text-white/20 text-xs">© 2025 TutorPro. All rights reserved.</p>
+        <p className="text-white/20 text-xs">© 2026 Educapy. All rights reserved.</p>
       </div>
 
       {/* Right panel */}
@@ -1915,9 +2053,25 @@ export default function App() {
   const [page, setPage] = useState("dashboard");
   const [globalSearch, setGlobalSearch] = useState("");
 
-  function handleLogin(role: Role, nama: string) {
+  // 1. Tambahkan state baru untuk menyimpan ID user yang sedang aktif
+  const [loggedInId, setLoggedInId] = useState<number | null>(null);
+  const [activeLessons, setActiveLessons] = useState<Les[]>([]);
+
+  // Ambil data les dari database setiap kali loggedInId berubah (setelah login atau booking baru)
+  useEffect(() => {
+    if (loggedInId) {
+      fetch(`http://localhost:8080/api/les/siswa?id_siswa=${loggedInId}`)
+        .then((res) => res.json())
+        .then((data) => setActiveLessons(data))
+        .catch((err) => console.error("Gagal mengambil data les:", err));
+    }
+  }, [loggedInId, page]); // Triger ulang setiap kali pindah halaman
+
+  // 2. Update fungsi handleLogin
+  function handleLogin(role: Role, nama: string, id: number) {
     setLoggedInRole(role);
     setLoggedInName(nama);
+    setLoggedInId(id); // <--- SIMPAN ID SISWA DI SINI
     setAuthScreen(null);
     setPage("dashboard");
   }
@@ -1938,9 +2092,10 @@ export default function App() {
 
   function renderPage() {
     if (loggedInRole === "student") {
-      if (page === "book") return <BookLesson />;
-      if (page === "mylessons") return <MyLessons />;
-      return <StudentDashboard setPage={setPage} />;
+      // Tambahkan props setActiveLessons={setActiveLessons} di sini
+      if (page === "book") return <BookLesson loggedInId={loggedInId} setActiveLessons={setActiveLessons} />;
+      if (page === "mylessons") return <MyLessons loggedInId={loggedInId} activeLessons={activeLessons} />;
+      return <StudentDashboard setPage={setPage} loggedInName={loggedInName} loggedInId={loggedInId} activeLessons={activeLessons} />;
     }
     if (loggedInRole === "teacher") {
       if (page === "availability") return <TeacherAvailability />;
