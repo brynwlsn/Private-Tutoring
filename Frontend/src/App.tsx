@@ -319,11 +319,7 @@ function TopBar({ role, setRole, globalSearch, setGlobalSearch, onLogout, logged
 }
 
 // ─── Page: Book a Lesson (Student) ───────────────────────────────────────────
-const WEEK_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-const DAY_FULL: Record<string, string> = {
-  Mon: "Monday", Tue: "Tuesday", Wed: "Wednesday", Thu: "Thursday",
-  Fri: "Friday", Sat: "Saturday", Sun: "Sunday",
-};
+
 
 // 1. Tambahkan parameter { loggedInId } di sini
 // Ubah baris ini agar mau menerima setActiveLessons dari App()
@@ -335,11 +331,10 @@ function BookLesson({ loggedInId, setActiveLessons }: { loggedInId: number | nul
   const [selJadwal, setSelJadwal] = useState<number | null>(null);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
-  const [selDays, setSelDays] = useState<string[]>([]);
   const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
   const [booked, setBooked] = useState(false);
-  const [customJamMulai, setCustomJamMulai] = useState("");
-  const [customJamSelesai, setCustomJamSelesai] = useState("");
+  // selSlots: key = "hari|jam_mulai|jam_selesai", value = { hari, jam_mulai, jam_selesai, id_jadwal }
+  const [selSlots, setSelSlots] = useState<{ key: string; hari: string; jam_mulai: string; jam_selesai: string; id_jadwal: number }[]>([]);
 
   const filteredMapel = MAPEL.filter((m) => m.id_jenjang === Number(selJenjang));
 
@@ -358,7 +353,58 @@ function BookLesson({ loggedInId, setActiveLessons }: { loggedInId: number | nul
     return JADWAL.filter((j) => keahlianIds.includes(j.id_keahlian));
   }, [selGuru, selJenjang, selMapel]);
 
-  const selJadwalObj = JADWAL.find((j) => j.id === selJadwal);
+  // Generate 1-hour slots from a time window
+  function generateSlots(jam_mulai: string, jam_selesai: string, id_jadwal: number, hari: string) {
+    const slots: { key: string; hari: string; jam_mulai: string; jam_selesai: string; id_jadwal: number }[] = [];
+    let start = timeToMinutes(jam_mulai);
+    const end = timeToMinutes(jam_selesai);
+    while (start + 60 <= end) {
+      const slotStart = `${String(Math.floor(start / 60)).padStart(2, "0")}:${String(start % 60).padStart(2, "0")}`;
+      const slotEnd = `${String(Math.floor((start + 60) / 60)).padStart(2, "0")}:${String((start + 60) % 60).padStart(2, "0")}`;
+      slots.push({ key: `${hari}|${slotStart}|${slotEnd}`, hari, jam_mulai: slotStart, jam_selesai: slotEnd, id_jadwal });
+      start += 60;
+    }
+    return slots;
+  }
+
+  // Available days (unique) from guruJadwal
+  const availableDays = useMemo(() => [...new Set(guruJadwal.map((j) => j.hari))], [guruJadwal]);
+
+  // Selected days from the day-picker (full day names like "Monday")
+  const [selPickedDays, setSelPickedDays] = useState<string[]>([]);
+
+  function togglePickedDay(day: string) {
+    setSelPickedDays((prev) => {
+      const next = prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day];
+      // Remove any selected slots that no longer match picked days
+      setSelSlots((s) => s.filter((sl) => next.includes(sl.hari)));
+      return next;
+    });
+  }
+
+  // All 1-hour slots for the picked days
+  const slotsForPickedDays = useMemo(() => {
+    return selPickedDays.flatMap((day) => {
+      const jadwal = guruJadwal.find((j) => j.hari === day);
+      if (!jadwal) return [];
+      return generateSlots(jadwal.jam_mulai, jadwal.jam_selesai, jadwal.id, jadwal.hari);
+    });
+  }, [selPickedDays, guruJadwal]);
+
+  function toggleSlot(slot: typeof selSlots[number]) {
+    setSelSlots((prev) => {
+      const exists = prev.find((s) => s.key === slot.key);
+      if (exists) return prev.filter((s) => s.key !== slot.key);
+      return [...prev, slot];
+    });
+    // Advance to step 4 on first slot selection
+    if (selSlots.length === 0) setStep(4);
+  }
+
+  // Use first selected slot as the "selJadwal" for legacy summary / booking
+  const selJadwalObj = selSlots.length > 0
+    ? { ...JADWAL.find((j) => j.id === selSlots[0].id_jadwal)!, jam_mulai: selSlots[0].jam_mulai, jam_selesai: selSlots[0].jam_selesai, hari: selSlots[0].hari }
+    : JADWAL.find((j) => j.id === selJadwal);
   const selGuruObj = GURU.find((g) => g.id === selGuru);
   const selMapelObj = MAPEL.find((m) => m.id === Number(selMapel));
   const selJenjangObj = JENJANG.find((j) => j.id === Number(selJenjang));
@@ -380,67 +426,49 @@ function BookLesson({ loggedInId, setActiveLessons }: { loggedInId: number | nul
     return bookedIds;
   }, [selGuru, startDate, endDate]);
 
-  function toggleDay(d: string) {
-    setSelDays((prev) => prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d]);
-  }
-
   async function handleBook() {
-    if (!selJadwal || !startDate || !endDate || selDays.length === 0) return;
-    if (bookedSlotIds.has(selJadwal)) {
-      setToast({ msg: "Schedule overlapping or unavailable. Please choose another time.", type: "error" });
-      return;
-    }
+    if (selSlots.length === 0 || !startDate || !endDate) return;
 
-    // Ganti logika jamMulai dan jamSelesai lama di dalam handleBook menjadi ini:
-    const jamMulai = customJamMulai || selJadwalObj?.jam_mulai || "00:00";
-    const jamSelesai = customJamSelesai || selJadwalObj?.jam_selesai || "00:00";
-
-    // Hitung durasi otomatis dalam satuan menit
-    const menitMulai = timeToMinutes(jamMulai);
-    const menitSelesai = timeToMinutes(jamSelesai);
-    const hitungDurasi = menitSelesai - menitMulai; // Hasilnya berupa angka (menit)
-
-    const payload = {
-      id_siswa: loggedInId,
-      id_jadwal: selJadwal,
-      tanggal_mulai: `${startDate}T${jamMulai}`,
-      tanggal_selesai: `${startDate}T${jamSelesai}`,
-      durasi: hitungDurasi // <--- KIRIM DURASI KE BACKEND JAVA
-    };
-
+    // Book each selected slot (1 hour each, durasi = 60 menit)
     try {
-      const response = await fetch("http://localhost:8080/api/les", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      });
-
-      const result = await response.json();
-
-      if (result.status === "sukses") {
-        setBooked(true);
-        setToast({ msg: "Lesson booked successfully with exact duration!", type: "success" });
-
-        // Trigger reload data les setelah sukses booking
-        if (loggedInId) {
-          fetch(`http://localhost:8080/api/les/siswa?id_siswa=${loggedInId}`)
-            .then((res) => res.json())
-            .then((data) => setActiveLessons(data));
+      for (const slot of selSlots) {
+        if (bookedSlotIds.has(slot.id_jadwal)) continue;
+        const payload = {
+          id_siswa: loggedInId,
+          id_jadwal: slot.id_jadwal,
+          tanggal_mulai: `${startDate}T${slot.jam_mulai}`,
+          tanggal_selesai: `${startDate}T${slot.jam_selesai}`,
+          durasi: 60,
+        };
+        const response = await fetch("http://localhost:8080/api/les", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const result = await response.json();
+        if (result.status !== "sukses") {
+          setToast({ msg: "Database error: " + result.pesan, type: "error" });
+          return;
         }
-      } else {
-        setToast({ msg: "Database error: " + result.pesan, type: "error" });
       }
-    } catch (error) {
+      setBooked(true);
+      setToast({ msg: "Lesson booked successfully!", type: "success" });
+      if (loggedInId) {
+        fetch(`http://localhost:8080/api/les/siswa?id_siswa=${loggedInId}`)
+          .then((res) => res.json())
+          .then((data) => setActiveLessons(data));
+      }
+    } catch {
       setToast({ msg: "Server tidak merespon. Pastikan Backend Java berjalan.", type: "error" });
     }
   }
 
-  const summaryComplete = selJenjang && selMapel && selGuru && selJadwal && startDate && endDate && selDays.length > 0;
+  const summaryComplete = selJenjang && selMapel && selGuru && selSlots.length > 0 && startDate && endDate;
 
   const totalWeeks = startDate && endDate
     ? Math.ceil((new Date(endDate).getTime() - new Date(startDate).getTime()) / (7 * 86400000))
     : 0;
-  const totalSessions = totalWeeks * selDays.length;
+  const totalSessions = totalWeeks * selSlots.length;
 
   return (
     <div className="flex gap-0 h-full relative">
@@ -520,64 +548,100 @@ function BookLesson({ loggedInId, setActiveLessons }: { loggedInId: number | nul
           </div>
         )}
 
-        {/* Step 3 — Availability with Fully Booked indicators */}
+        {/* Step 3 — Day picker + 1-hour slots */}
         {selGuru && (
-          <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-4">
+          <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-5">
             <h2 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
               <span className="w-5 h-5 bg-[#4361EE] text-white rounded-full flex items-center justify-center text-xs">3</span>
               Teacher Availability
             </h2>
-            <p className="text-xs text-slate-500">
-              Select an available time slot. Slots marked <span className="font-semibold text-red-500">Fully Booked</span> are occupied for the selected date range.
-            </p>
-            {(!startDate || !endDate) && (
-              <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                Set your start &amp; end dates in Step 4 first to see real-time availability.
-              </p>
-            )}
-            <div className="grid grid-cols-3 gap-3">
-              {guruJadwal.map((j) => {
-                const isBooked = bookedSlotIds.has(j.id);
-                return (
-                  <button
-                    key={j.id}
-                    onClick={() => { if (!isBooked) { setSelJadwal(j.id); setStep(4); } }}
-                    disabled={isBooked}
-                    className={`p-3 border rounded-xl text-left transition-all relative ${isBooked
-                      ? "border-red-200 bg-red-50 cursor-not-allowed"
-                      : selJadwal === j.id
-                        ? "border-[#4361EE] bg-indigo-50 ring-1 ring-[#4361EE]/20 hover:border-[#4361EE]/50"
-                        : "border-slate-200 hover:border-[#4361EE]/50 hover:bg-indigo-50/50"
+
+            {/* Day picker */}
+            <div className="space-y-2">
+              <p className="text-xs font-medium text-slate-600">Pilih Hari <span className="text-red-400">*</span></p>
+              <div className="flex gap-2 flex-wrap">
+                {HARI.map((day) => {
+                  const isAvail = availableDays.includes(day);
+                  const sel = selPickedDays.includes(day);
+                  return (
+                    <button
+                      key={day}
+                      type="button"
+                      onClick={() => isAvail && togglePickedDay(day)}
+                      disabled={!isAvail}
+                      className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
+                        !isAvail
+                          ? "border-slate-200 text-slate-300 bg-slate-50 cursor-not-allowed"
+                          : sel
+                            ? "border-[#4361EE] bg-[#4361EE] text-white"
+                            : "border-slate-300 text-slate-600 hover:border-[#4361EE] hover:text-[#4361EE]"
                       }`}
-                  >
-                    <p className={`text-sm font-semibold ${isBooked ? "text-red-400" : "text-slate-700"}`}>{j.hari}</p>
-                    <p className={`text-xs mt-1 flex items-center gap-1 ${isBooked ? "text-red-400" : "text-slate-500"}`}>
-                      <Clock size={11} />{j.jam_mulai} – {j.jam_selesai}
-                    </p>
-                    {isBooked && (
-                      <span className="mt-1.5 inline-block text-xs font-semibold text-red-500 bg-red-100 px-1.5 py-0.5 rounded">
-                        Fully Booked
-                      </span>
-                    )}
-                    {!isBooked && selJadwal === j.id && (
-                      <Check size={14} className="absolute top-3 right-3 text-[#4361EE]" />
-                    )}
-                  </button>
-                );
-              })}
+                    >
+                      {DAY_SHORT[day]}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-slate-400">Hanya hari yang tersedia untuk guru ini yang bisa dipilih. Bisa pilih lebih dari 1 hari.</p>
             </div>
+
+            {/* Slot grid per day */}
+            {selPickedDays.length > 0 && (
+              <div className="space-y-4">
+                <p className="text-xs font-medium text-slate-600">Pilih Slot (1 jam) <span className="text-red-400">*</span></p>
+                {selPickedDays.map((day) => {
+                  const daySlots = slotsForPickedDays.filter((s) => s.hari === day);
+                  return (
+                    <div key={day} className="space-y-2">
+                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{day}</p>
+                      <div className="flex gap-2 flex-wrap">
+                        {daySlots.map((slot) => {
+                          const isSel = selSlots.some((s) => s.key === slot.key);
+                          const isBooked = bookedSlotIds.has(slot.id_jadwal);
+                          return (
+                            <button
+                              key={slot.key}
+                              type="button"
+                              onClick={() => !isBooked && toggleSlot(slot)}
+                              disabled={isBooked}
+                              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-semibold transition-all ${
+                                isBooked
+                                  ? "border-red-200 bg-red-50 text-red-400 cursor-not-allowed"
+                                  : isSel
+                                    ? "border-[#4361EE] bg-[#4361EE] text-white"
+                                    : "border-slate-200 text-slate-600 hover:border-[#4361EE] hover:text-[#4361EE] hover:bg-indigo-50/50"
+                              }`}
+                            >
+                              <Clock size={11} />
+                              {slot.jam_mulai} – {slot.jam_selesai}
+                              {isBooked && <span className="ml-1 text-red-400">(Full)</span>}
+                              {isSel && <Check size={11} className="ml-1" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+                {selSlots.length > 0 && (
+                  <div className="flex justify-end">
+                    <Button onClick={() => setStep(4)} size="sm">Next: Schedule Details <ChevronRight size={14} /></Button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
         {/* Step 4 — Recurring Schedule Details */}
-        {selJadwal && (
+        {selSlots.length > 0 && (
           <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-5">
             <h2 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
               <span className="w-5 h-5 bg-[#4361EE] text-white rounded-full flex items-center justify-center text-xs">4</span>
               Schedule Details
             </h2>
             <p className="text-xs text-slate-500">
-              Set the lesson period and choose which days of the week to hold sessions. Sessions will recur weekly within the date range.
+              Set the lesson period. Sessions will recur weekly for each selected slot within the date range.
             </p>
 
             {/* Date range */}
@@ -585,28 +649,7 @@ function BookLesson({ loggedInId, setActiveLessons }: { loggedInId: number | nul
               <Input label="Start Date" type="date" value={startDate} onChange={setStartDate} required />
               <Input label="End Date" type="date" value={endDate} onChange={setEndDate} min={startDate} required />
             </div>
-            {/* Pilihan Jam Kustom */}
-            <div className="grid grid-cols-2 gap-4 mt-3">
-              <Input
-                label="Jam Mulai Les (Pilihan)"
-                type="time"
-                value={customJamMulai}
-                onChange={setCustomJamMulai}
-                min={selJadwalObj?.jam_mulai}
-                max={selJadwalObj?.jam_selesai}
-              />
-              <Input
-                label="Jam Selesai Les (Pilihan)"
-                type="time"
-                value={customJamSelesai}
-                onChange={setCustomJamSelesai}
-                min={customJamMulai || selJadwalObj?.jam_mulai}
-                max={selJadwalObj?.jam_selesai}
-              />
-            </div>
-            <p className="text-xs text-amber-600 mt-1">
-              *Kosongkan jika ingin mengikuti jam default dari ketersediaan guru ({selJadwalObj?.jam_mulai} - {selJadwalObj?.jam_selesai}).
-            </p>
+
             {/* Subject (read-only display) */}
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium text-slate-600">Subject</label>
@@ -615,33 +658,16 @@ function BookLesson({ loggedInId, setActiveLessons }: { loggedInId: number | nul
               </div>
             </div>
 
-            {/* Days of week chips */}
+            {/* Selected slots summary */}
             <div className="flex flex-col gap-2">
-              <label className="text-xs font-medium text-slate-600">Days of the Week <span className="text-red-400">*</span></label>
+              <label className="text-xs font-medium text-slate-600">Slot Terpilih</label>
               <div className="flex gap-2 flex-wrap">
-                {WEEK_DAYS.map((d) => {
-                  const fullDay = DAY_FULL[d];
-                  const isAvail = selJadwalObj?.hari === fullDay;
-                  const sel = selDays.includes(d);
-                  return (
-                    <button
-                      key={d}
-                      type="button"
-                      onClick={() => isAvail && toggleDay(d)}
-                      disabled={!isAvail}
-                      className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${!isAvail
-                        ? "border-slate-200 text-slate-300 bg-slate-50 cursor-not-allowed"
-                        : sel
-                          ? "border-[#4361EE] bg-[#4361EE] text-white"
-                          : "border-slate-300 text-slate-600 hover:border-[#4361EE] hover:text-[#4361EE]"
-                        }`}
-                    >
-                      {d}
-                    </button>
-                  );
-                })}
+                {selSlots.map((slot) => (
+                  <span key={slot.key} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 border border-[#4361EE]/30 text-[#4361EE] rounded-lg text-xs font-semibold">
+                    <Clock size={11} />{slot.hari} · {slot.jam_mulai}–{slot.jam_selesai}
+                  </span>
+                ))}
               </div>
-              <p className="text-xs text-slate-400">Only days matching the teacher's availability window are selectable.</p>
             </div>
 
             {summaryComplete && (
@@ -667,14 +693,14 @@ function BookLesson({ loggedInId, setActiveLessons }: { loggedInId: number | nul
             </div>
             <div className="p-5 space-y-4">
               <SummaryRow icon={<UserCheck size={14} />} label="Teacher" value={selGuruObj?.nama ?? "Not selected"} />
-              <SummaryRow icon={<Clock size={14} />} label="Time Window" value={selJadwalObj ? `${selJadwalObj.hari} · ${selJadwalObj.jam_mulai} – ${selJadwalObj.jam_selesai}` : "Not selected"} />
+              <SummaryRow icon={<Clock size={14} />} label="Time Window" value={selSlots.length > 0 ? `${selSlots.length} slot dipilih` : "Not selected"} />
               <div className="border-t border-slate-100 pt-4 space-y-3">
                 <SummaryRow icon={<Calendar size={14} />} label="Start Date" value={startDate ? formatDate(startDate + "T00:00") : "Not set"} />
                 <SummaryRow icon={<Calendar size={14} />} label="End Date" value={endDate ? formatDate(endDate + "T00:00") : "Not set"} />
                 <SummaryRow
                   icon={<Clock size={14} />}
-                  label="Days"
-                  value={selDays.length > 0 ? selDays.join(", ") : "Not selected"}
+                  label="Slots"
+                  value={selSlots.length > 0 ? selSlots.map((s) => `${s.hari} ${s.jam_mulai}-${s.jam_selesai}`).join(", ") : "Not selected"}
                 />
                 {totalSessions > 0 && (
                   <SummaryRow icon={<BookOpen size={14} />} label="Total Sessions" value={`~${totalSessions} sessions`} />
@@ -2125,4 +2151,3 @@ export default function App() {
     </div>
   );
 }
-
