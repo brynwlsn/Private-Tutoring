@@ -235,7 +235,7 @@ public class BackendServer {
                     String tglMulaiStr = ambilNilaiJSON(jsonInput, "tanggal_mulai").replace("T", " ") + ":00";
                     String tglSelesaiStr = ambilNilaiJSON(jsonInput, "tanggal_selesai").replace("T", " ") + ":00";
 
-                    int newIdLes = (int) (System.currentTimeMillis() % 100000);
+                    int newIdLes = (int) (System.currentTimeMillis() % 100000) + (int) (Math.random() * 50000);
 
                     // Tambahkan kolom durasi ke dalam query INSERT
                     String sql = "INSERT INTO Les (id_les, id_siswa, id_jadwal, tanggal_mulai, tanggal_selesai, durasi) VALUES (?, ?, ?, ?, ?, ?)";

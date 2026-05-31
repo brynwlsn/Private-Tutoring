@@ -327,8 +327,7 @@ function BookLesson({ loggedInId, setActiveLessons }: { loggedInId: number | nul
   const [step, setStep] = useState(1);
   const [selJenjang, setSelJenjang] = useState("");
   const [selMapel, setSelMapel] = useState("");
-  const [selGuru, setSelGuru] = useState<number | null>(null);
-  const [selJadwal, setSelJadwal] = useState<number | null>(null);
+  const [selGurus, setSelGurus] = useState<number[]>([]);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
@@ -346,12 +345,12 @@ function BookLesson({ loggedInId, setActiveLessons }: { loggedInId: number | nul
   }, [selJenjang, selMapel]);
 
   const guruJadwal = useMemo(() => {
-    if (!selGuru) return [];
+    if (selGurus.length === 0) return [];
     const keahlianIds = KEAHLIAN.filter(
-      (k) => k.id_guru === selGuru && k.id_jenjang === Number(selJenjang) && k.id_mapel === Number(selMapel)
+      (k) => selGurus.includes(k.id_guru) && k.id_jenjang === Number(selJenjang) && k.id_mapel === Number(selMapel)
     ).map((k) => k.id);
     return JADWAL.filter((j) => keahlianIds.includes(j.id_keahlian));
-  }, [selGuru, selJenjang, selMapel]);
+  }, [selGurus, selJenjang, selMapel]);
 
   // Generate 1-hour slots from a time window
   function generateSlots(jam_mulai: string, jam_selesai: string, id_jadwal: number, hari: string) {
@@ -361,7 +360,8 @@ function BookLesson({ loggedInId, setActiveLessons }: { loggedInId: number | nul
     while (start + 60 <= end) {
       const slotStart = `${String(Math.floor(start / 60)).padStart(2, "0")}:${String(start % 60).padStart(2, "0")}`;
       const slotEnd = `${String(Math.floor((start + 60) / 60)).padStart(2, "0")}:${String((start + 60) % 60).padStart(2, "0")}`;
-      slots.push({ key: `${hari}|${slotStart}|${slotEnd}`, hari, jam_mulai: slotStart, jam_selesai: slotEnd, id_jadwal });
+      // Tambahkan id_jadwal di depan key
+      slots.push({ key: `${id_jadwal}|${hari}|${slotStart}|${slotEnd}`, hari, jam_mulai: slotStart, jam_selesai: slotEnd, id_jadwal });
       start += 60;
     }
     return slots;
@@ -404,15 +404,15 @@ function BookLesson({ loggedInId, setActiveLessons }: { loggedInId: number | nul
   // Use first selected slot as the "selJadwal" for legacy summary / booking
   const selJadwalObj = selSlots.length > 0
     ? { ...JADWAL.find((j) => j.id === selSlots[0].id_jadwal)!, jam_mulai: selSlots[0].jam_mulai, jam_selesai: selSlots[0].jam_selesai, hari: selSlots[0].hari }
-    : JADWAL.find((j) => j.id === selJadwal);
-  const selGuruObj = GURU.find((g) => g.id === selGuru);
+    : null;
+  const selGuruObjs = GURU.filter((g) => selGurus.includes(g.id));
   const selMapelObj = MAPEL.find((m) => m.id === Number(selMapel));
   const selJenjangObj = JENJANG.find((j) => j.id === Number(selJenjang));
 
   // Build set of fully-booked slot IDs for the selected date range
   const bookedSlotIds = useMemo(() => {
-    if (!selGuru || !startDate || !endDate) return new Set<number>();
-    const guruKeahlianIds = KEAHLIAN.filter((k) => k.id_guru === selGuru).map((k) => k.id);
+    if (selGurus.length === 0 || !startDate || !endDate) return new Set<number>();
+    const guruKeahlianIds = KEAHLIAN.filter((k) => selGurus.includes(k.id_guru)).map((k) => k.id);
     const guruJadwalIds = JADWAL.filter((j) => guruKeahlianIds.includes(j.id_keahlian)).map((j) => j.id);
     const bookedIds = new Set<number>();
     guruJadwalIds.forEach((jid) => {
@@ -424,35 +424,67 @@ function BookLesson({ loggedInId, setActiveLessons }: { loggedInId: number | nul
       if (hasBooking) bookedIds.add(jid);
     });
     return bookedIds;
-  }, [selGuru, startDate, endDate]);
+  }, [selGurus, startDate, endDate]);
 
   async function handleBook() {
     if (selSlots.length === 0 || !startDate || !endDate) return;
 
-    // Book each selected slot (1 hour each, durasi = 60 menit)
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+
+    // Daftar index hari untuk pencocokan otomatis (0 = Sunday, 1 = Monday, dst)
+    const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
     try {
+      // 1. Loop pertama: Iterasi setiap slot (jam) yang dipilih user
       for (const slot of selSlots) {
-        if (bookedSlotIds.has(slot.id_jadwal)) continue;
-        const payload = {
-          id_siswa: loggedInId,
-          id_jadwal: slot.id_jadwal,
-          tanggal_mulai: `${startDate}T${slot.jam_mulai}`,
-          tanggal_selesai: `${startDate}T${slot.jam_selesai}`,
-          durasi: 60,
-        };
-        const response = await fetch("http://localhost:8080/api/les", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        const result = await response.json();
-        if (result.status !== "sukses") {
-          setToast({ msg: "Database error: " + result.pesan, type: "error" });
-          return;
+        const slotDayIdx = dayNames.indexOf(slot.hari);
+
+        // Set tanggal awal untuk slot ini, lalu geser maju sampai harinya pas dengan slot.hari
+        // (Misal: User pilih start date hari Selasa, tapi slotnya hari Jumat, maka majukan ke Jumat)
+        let currentDate = new Date(start);
+        while (currentDate.getDay() !== slotDayIdx) {
+          currentDate.setDate(currentDate.getDate() + 1);
+        }
+
+        // 2. Loop kedua (Recurring): Dari tanggal yang sudah pas, booking setiap minggu sampai melewati endDate
+        while (currentDate <= end) {
+          // Format ke YYYY-MM-DD
+          const year = currentDate.getFullYear();
+          const month = String(currentDate.getMonth() + 1).padStart(2, "0");
+          const dateStr = String(currentDate.getDate()).padStart(2, "0");
+          const formattedDate = `${year}-${month}-${dateStr}`;
+
+          const payload = {
+            id_siswa: loggedInId,
+            id_jadwal: slot.id_jadwal,
+            tanggal_mulai: `${formattedDate}T${slot.jam_mulai}`,
+            tanggal_selesai: `${formattedDate}T${slot.jam_selesai}`,
+            durasi: 60, // Durasi pasti 60 menit karena sistem slot per jam
+          };
+
+          // Tembak ke Backend Java
+          const response = await fetch("http://localhost:8080/api/les", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+
+          const result = await response.json();
+          if (result.status !== "sukses") {
+            setToast({ msg: "Gagal booking: " + result.pesan, type: "error" });
+            return;
+          }
+
+          // Tambah 7 hari untuk mengeksekusi jadwal minggu depannya
+          currentDate.setDate(currentDate.getDate() + 7);
         }
       }
+
       setBooked(true);
-      setToast({ msg: "Lesson booked successfully!", type: "success" });
+      setToast({ msg: "Recurring lessons booked successfully!", type: "success" });
+
+      // Reload riwayat les agar langsung muncul di dashboard
       if (loggedInId) {
         fetch(`http://localhost:8080/api/les/siswa?id_siswa=${loggedInId}`)
           .then((res) => res.json())
@@ -463,8 +495,7 @@ function BookLesson({ loggedInId, setActiveLessons }: { loggedInId: number | nul
     }
   }
 
-  const summaryComplete = selJenjang && selMapel && selGuru && selSlots.length > 0 && startDate && endDate;
-
+  const summaryComplete = selJenjang && selMapel && selGurus.length > 0 && selSlots.length > 0 && startDate && endDate;
   const totalWeeks = startDate && endDate
     ? Math.ceil((new Date(endDate).getTime() - new Date(startDate).getTime()) / (7 * 86400000))
     : 0;
@@ -502,8 +533,20 @@ function BookLesson({ loggedInId, setActiveLessons }: { loggedInId: number | nul
             Education Level &amp; Subject
           </h2>
           <div className="grid grid-cols-2 gap-4">
-            <Select label="Education Level" value={selJenjang} onChange={(v) => { setSelJenjang(v); setSelMapel(""); setSelGuru(null); setSelJadwal(null); }} options={JENJANG.map((j) => ({ value: String(j.id), label: j.nama }))} placeholder="Select level" required />
-            <Select label="Subject" value={selMapel} onChange={(v) => { setSelMapel(v); setSelGuru(null); setSelJadwal(null); }} options={filteredMapel.map((m) => ({ value: String(m.id), label: m.nama }))} placeholder={selJenjang ? "Select subject" : "Select level first"} required />
+            <Select
+              label="Education Level"
+              value={selJenjang}
+              onChange={(v) => { setSelJenjang(v); setSelMapel(""); setSelGurus([]); setSelSlots([]); }}
+              options={JENJANG.map((j) => ({ value: String(j.id), label: j.nama }))}
+              placeholder="Select level" required
+            />
+            <Select
+              label="Subject"
+              value={selMapel}
+              onChange={(v) => { setSelMapel(v); setSelGurus([]); setSelSlots([]); }}
+              options={filteredMapel.map((m) => ({ value: String(m.id), label: m.nama }))}
+              placeholder={selJenjang ? "Select subject" : "Select level first"} required
+            />
           </div>
           {selJenjang && selMapel && (
             <div className="flex justify-end">
@@ -517,7 +560,7 @@ function BookLesson({ loggedInId, setActiveLessons }: { loggedInId: number | nul
           <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-4">
             <h2 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
               <span className="w-5 h-5 bg-[#4361EE] text-white rounded-full flex items-center justify-center text-xs">2</span>
-              Choose a Teacher
+              Choose Teachers (Bisa pilih lebih dari 1)
             </h2>
             {filteredGuru.length === 0 ? (
               <p className="text-sm text-slate-400 text-center py-4">No teachers available for this subject and level.</p>
@@ -525,31 +568,38 @@ function BookLesson({ loggedInId, setActiveLessons }: { loggedInId: number | nul
               <div className="grid grid-cols-2 gap-3">
                 {filteredGuru.map((g) => (
                   <button
-                    key={g.id} onClick={() => { setSelGuru(g.id); setSelJadwal(null); setStep(3); }}
-                    className={`text-left p-4 border rounded-xl flex items-start gap-3 transition-all hover:border-[#4361EE]/50 hover:bg-indigo-50/50 ${selGuru === g.id ? "border-[#4361EE] bg-indigo-50 ring-1 ring-[#4361EE]/20" : "border-slate-200"}`}
+                    key={g.id}
+                    onClick={() => {
+                      // Logika centang / hapus centang guru
+                      setSelGurus(prev => prev.includes(g.id) ? prev.filter(id => id !== g.id) : [...prev, g.id]);
+                      // Reset pilihan jam jika guru berubah
+                      setSelPickedDays([]);
+                      setSelSlots([]);
+                    }}
+                    className={`text-left p-4 border rounded-xl flex items-start gap-3 transition-all hover:border-[#4361EE]/50 hover:bg-indigo-50/50 ${selGurus.includes(g.id) ? "border-[#4361EE] bg-indigo-50 ring-1 ring-[#4361EE]/20" : "border-slate-200"}`}
                   >
                     <Avatar name={g.nama} size="lg" />
                     <div>
                       <p className="text-sm font-semibold text-slate-800 leading-tight">{g.nama}</p>
                       <p className="text-xs text-slate-400 mt-0.5">{g.email}</p>
-                      <div className="flex gap-1 mt-2 flex-wrap">
-                        {KEAHLIAN.filter((k) => k.id_guru === g.id).slice(0, 2).map((k) => {
-                          const mp = MAPEL.find((m) => m.id === k.id_mapel);
-                          const jj = JENJANG.find((j) => j.id === k.id_jenjang);
-                          return <Badge key={k.id} label={`${mp?.nama} · ${jj?.nama}`} variant="info" />;
-                        })}
-                      </div>
                     </div>
-                    {selGuru === g.id && <Check size={16} className="ml-auto text-[#4361EE] flex-shrink-0" />}
+                    {selGurus.includes(g.id) && <Check size={16} className="ml-auto text-[#4361EE] flex-shrink-0" />}
                   </button>
                 ))}
+              </div>
+            )}
+
+            {/* Tombol Next dimunculkan kalau ada minimal 1 guru dipilih */}
+            {selGurus.length > 0 && (
+              <div className="flex justify-end pt-2">
+                <Button onClick={() => setStep(3)} size="sm">Next: Availability <ChevronRight size={14} /></Button>
               </div>
             )}
           </div>
         )}
 
         {/* Step 3 — Day picker + 1-hour slots */}
-        {selGuru && (
+        {selGurus.length > 0 && (
           <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-5">
             <h2 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
               <span className="w-5 h-5 bg-[#4361EE] text-white rounded-full flex items-center justify-center text-xs">3</span>
@@ -569,13 +619,12 @@ function BookLesson({ loggedInId, setActiveLessons }: { loggedInId: number | nul
                       type="button"
                       onClick={() => isAvail && togglePickedDay(day)}
                       disabled={!isAvail}
-                      className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
-                        !isAvail
-                          ? "border-slate-200 text-slate-300 bg-slate-50 cursor-not-allowed"
-                          : sel
-                            ? "border-[#4361EE] bg-[#4361EE] text-white"
-                            : "border-slate-300 text-slate-600 hover:border-[#4361EE] hover:text-[#4361EE]"
-                      }`}
+                      className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${!isAvail
+                        ? "border-slate-200 text-slate-300 bg-slate-50 cursor-not-allowed"
+                        : sel
+                          ? "border-[#4361EE] bg-[#4361EE] text-white"
+                          : "border-slate-300 text-slate-600 hover:border-[#4361EE] hover:text-[#4361EE]"
+                        }`}
                     >
                       {DAY_SHORT[day]}
                     </button>
@@ -598,22 +647,23 @@ function BookLesson({ loggedInId, setActiveLessons }: { loggedInId: number | nul
                         {daySlots.map((slot) => {
                           const isSel = selSlots.some((s) => s.key === slot.key);
                           const isBooked = bookedSlotIds.has(slot.id_jadwal);
+
+                          // Cari nama guru pemilik slot ini
+                          const slotJadwal = JADWAL.find(j => j.id === slot.id_jadwal);
+                          const slotKeahlian = KEAHLIAN.find(k => k.id === slotJadwal?.id_keahlian);
+                          const slotGuru = GURU.find(g => g.id === slotKeahlian?.id_guru);
+
                           return (
                             <button
                               key={slot.key}
                               type="button"
                               onClick={() => !isBooked && toggleSlot(slot)}
                               disabled={isBooked}
-                              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-semibold transition-all ${
-                                isBooked
-                                  ? "border-red-200 bg-red-50 text-red-400 cursor-not-allowed"
-                                  : isSel
-                                    ? "border-[#4361EE] bg-[#4361EE] text-white"
-                                    : "border-slate-200 text-slate-600 hover:border-[#4361EE] hover:text-[#4361EE] hover:bg-indigo-50/50"
-                              }`}
+                              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-semibold transition-all ... (sama seperti sebelumnya) ... `}
                             >
                               <Clock size={11} />
-                              {slot.jam_mulai} – {slot.jam_selesai}
+                              {/* Tampilkan Jam + Nama Depan Gurunya */}
+                              {slot.jam_mulai} – {slot.jam_selesai} ({slotGuru?.nama.split(" ")[0]})
                               {isBooked && <span className="ml-1 text-red-400">(Full)</span>}
                               {isSel && <Check size={11} className="ml-1" />}
                             </button>
@@ -692,7 +742,11 @@ function BookLesson({ loggedInId, setActiveLessons }: { loggedInId: number | nul
               </p>
             </div>
             <div className="p-5 space-y-4">
-              <SummaryRow icon={<UserCheck size={14} />} label="Teacher" value={selGuruObj?.nama ?? "Not selected"} />
+              <SummaryRow
+                icon={<UserCheck size={14} />}
+                label="Teacher"
+                value={selGuruObjs.length > 0 ? selGuruObjs.map(g => g.nama).join(", ") : "Not selected"}
+              />
               <SummaryRow icon={<Clock size={14} />} label="Time Window" value={selSlots.length > 0 ? `${selSlots.length} slot dipilih` : "Not selected"} />
               <div className="border-t border-slate-100 pt-4 space-y-3">
                 <SummaryRow icon={<Calendar size={14} />} label="Start Date" value={startDate ? formatDate(startDate + "T00:00") : "Not set"} />
