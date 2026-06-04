@@ -80,7 +80,7 @@ public class BackendServer {
                             if (jenisKelamin.isEmpty())
                                 jenisKelamin = "L";
 
-                            sql = "INSERT INTO Siswa (id_siswa, id_jenjang, nama, tgl_lahir, jenis_kelamin, no_hp, email, password, alamat) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                            sql = "INSERT INTO Siswa (id_siswa, id_jenjang, nama, tgl_lahir, jenis_kelamin, no_hp, email, password) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
                             pstmt = conn.prepareStatement(sql);
                             pstmt.setInt(1, newId);
                             pstmt.setInt(2, idJenjang);
@@ -108,12 +108,10 @@ public class BackendServer {
 
                             // Pasang objek sqlDate yang sudah aman ke prepared statement
                             pstmt.setDate(4, sqlDate);
-
                             pstmt.setString(5, jenisKelamin);
                             pstmt.setString(6, noHp);
                             pstmt.setString(7, email);
                             pstmt.setString(8, password);
-                            pstmt.setString(9, "Belum diisi");
                         } else if ("teacher".equals(role)) {
                             // Registrasi Guru
                             sql = "INSERT INTO Guru (id_guru, nama, email, no_hp, password) VALUES (?, ?, ?, ?, ?)";

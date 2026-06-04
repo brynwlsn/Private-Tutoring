@@ -14,13 +14,14 @@ import React from 'react';
 type Role = "student" | "teacher" | "admin";
 
 interface Jenjang { id: number; nama: string; }
-interface Mapel { id: number; nama: string; id_jenjang: number; }
-interface Guru { id: number; nama: string; email: string; no_hp: string; avatar: string; }
-interface Siswa { id: number; id_jenjang: number; nama: string; tanggal_lahir: string; jenis_kelamin: string; no_hp: string; email: string; alamat?: string; pswrd?: string; }
-interface Admin { id: number; nama: string; email: string; no_hp: string; }
+interface Mapel { id: number; nama: string; }
+interface Guru { id: number; nama: string; email: string; no_hp: string; password?: string; id_admin: number; avatar?: string; }
+interface Siswa { id: number; nama: string; email: string; no_hp: string; tanggal_lahir: string; jenis_kelamin: string; password?: string; id_jenjang: number; alamat?: string; }
+interface Admin { id: number; nama: string; email: string; no_hp: string; password?: string }
 interface KeahlianGuru { id: number; id_guru: number; id_mapel: number; id_jenjang: number; }
-interface JadwalKesediaan { id: number; id_keahlian: number; hari: string; jam_mulai: string; jam_selesai: string; }
-interface Les { id: number; id_siswa: number; id_jadwal: number; tanggal_mulai: string; tanggal_selesai: string; durasi: number; }
+interface JadwalKesediaan { id: number; hari: string; jam_mulai: string; jam_selesai: string; status: string; id_guru: number; id_admin: number; }
+// Data Les yang sudah di-join dari Daftar_les dan Detail_Daftar_Les oleh Backend
+interface Les { id: number; tanggal_mulai: string; tanggal_selesai: string; id_siswa: number; id_jadwal: number; durasi: number; id_mapel: number; id_jenjang: number; }
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────
 const JENJANG: Jenjang[] = [
@@ -28,22 +29,17 @@ const JENJANG: Jenjang[] = [
 ];
 
 const MAPEL: Mapel[] = [
-  { id: 1, nama: "Mathematics", id_jenjang: 1 },
-  { id: 2, nama: "Indonesian", id_jenjang: 1 },
-  { id: 3, nama: "Mathematics", id_jenjang: 2 },
-  { id: 4, nama: "Science", id_jenjang: 2 },
-  { id: 5, nama: "English", id_jenjang: 2 },
-  { id: 6, nama: "Mathematics", id_jenjang: 3 },
-  { id: 7, nama: "Physics", id_jenjang: 3 },
-  { id: 8, nama: "Chemistry", id_jenjang: 3 },
-  { id: 9, nama: "Biology", id_jenjang: 3 },
+  { id: 1, nama: "Mathematics" }, { id: 2, nama: "Indonesian" },
+  { id: 3, nama: "Science" }, { id: 4, nama: "English" },
+  { id: 5, nama: "Physics" }, { id: 6, nama: "Chemistry" },
+  { id: 7, nama: "Biology" },
 ];
 
 const GURU: Guru[] = [
-  { id: 1, nama: "Dr. Ayu Rahmawati", email: "ayu@tutor.id", no_hp: "081234567801", avatar: "AR" },
-  { id: 2, nama: "Budi Santoso, S.Pd", email: "budi@tutor.id", no_hp: "081234567802", avatar: "BS" },
-  { id: 3, nama: "Citra Dewi, M.Si", email: "citra@tutor.id", no_hp: "081234567803", avatar: "CD" },
-  { id: 4, nama: "Dian Pratama, S.T", email: "dian@tutor.id", no_hp: "081234567804", avatar: "DP" },
+  { id: 1, nama: "Dr. Ayu Rahmawati", email: "ayu@tutor.id", no_hp: "081234567801", id_admin: 1, avatar: "AR" },
+  { id: 2, nama: "Budi Santoso, S.Pd", email: "budi@tutor.id", no_hp: "081234567802", id_admin: 1, avatar: "BS" },
+  { id: 3, nama: "Citra Dewi, M.Si", email: "citra@tutor.id", no_hp: "081234567803", id_admin: 1, avatar: "CD" },
+  { id: 4, nama: "Dian Pratama, S.T", email: "dian@tutor.id", no_hp: "081234567804", id_admin: 1, avatar: "DP" },
 ];
 
 const SISWA: Siswa[] = [
@@ -56,35 +52,29 @@ const SISWA: Siswa[] = [
 
 const ADMINS: Admin[] = [
   { id: 1, nama: "Reza Firmansyah", email: "reza@tutor.id", no_hp: "081300000001" },
-  { id: 2, nama: "Mega Sari", email: "mega@tutor.id", no_hp: "081300000002" },
 ];
 
 const KEAHLIAN: KeahlianGuru[] = [
-  { id: 1, id_guru: 1, id_mapel: 6, id_jenjang: 3 },
-  { id: 2, id_guru: 1, id_mapel: 7, id_jenjang: 3 },
-  { id: 3, id_guru: 2, id_mapel: 3, id_jenjang: 2 },
-  { id: 4, id_guru: 2, id_mapel: 4, id_jenjang: 2 },
-  { id: 5, id_guru: 3, id_mapel: 8, id_jenjang: 3 },
-  { id: 6, id_guru: 3, id_mapel: 9, id_jenjang: 3 },
-  { id: 7, id_guru: 4, id_mapel: 1, id_jenjang: 1 },
-  { id: 8, id_guru: 4, id_mapel: 3, id_jenjang: 2 },
+  { id: 1, id_guru: 1, id_mapel: 1, id_jenjang: 3 },
+  { id: 2, id_guru: 1, id_mapel: 5, id_jenjang: 3 },
+  { id: 3, id_guru: 2, id_mapel: 1, id_jenjang: 2 },
+  { id: 4, id_guru: 2, id_mapel: 3, id_jenjang: 2 },
+  { id: 5, id_guru: 3, id_mapel: 6, id_jenjang: 3 },
+  { id: 6, id_guru: 4, id_mapel: 1, id_jenjang: 1 },
 ];
 
+// Jadwal slot per jam — id_guru langsung (tidak pakai id_keahlian)
 const JADWAL: JadwalKesediaan[] = [
-  { id: 1, id_keahlian: 1, hari: "Monday", jam_mulai: "09:00", jam_selesai: "12:00" },
-  { id: 2, id_keahlian: 1, hari: "Wednesday", jam_mulai: "13:00", jam_selesai: "16:00" },
-  { id: 3, id_keahlian: 2, hari: "Tuesday", jam_mulai: "10:00", jam_selesai: "13:00" },
-  { id: 4, id_keahlian: 3, hari: "Monday", jam_mulai: "14:00", jam_selesai: "17:00" },
-  { id: 5, id_keahlian: 3, hari: "Thursday", jam_mulai: "08:00", jam_selesai: "11:00" },
-  { id: 6, id_keahlian: 5, hari: "Friday", jam_mulai: "09:00", jam_selesai: "12:00" },
-  { id: 7, id_keahlian: 7, hari: "Saturday", jam_mulai: "09:00", jam_selesai: "14:00" },
-  { id: 8, id_keahlian: 8, hari: "Sunday", jam_mulai: "10:00", jam_selesai: "13:00" },
+  { id: 101, id_guru: 1, hari: "Monday",    jam_mulai: "14:00", jam_selesai: "15:00", status: "tersedia", id_admin: 1 },
+  { id: 102, id_guru: 1, hari: "Monday",    jam_mulai: "15:00", jam_selesai: "16:00", status: "tersedia", id_admin: 1 },
+  { id: 103, id_guru: 1, hari: "Wednesday", jam_mulai: "13:00", jam_selesai: "14:00", status: "tersedia", id_admin: 1 },
+  { id: 104, id_guru: 2, hari: "Tuesday",   jam_mulai: "10:00", jam_selesai: "11:00", status: "tersedia", id_admin: 1 },
+  { id: 105, id_guru: 3, hari: "Thursday",  jam_mulai: "08:00", jam_selesai: "09:00", status: "terisi",   id_admin: 1 },
 ];
 
 const LES_DATA: Les[] = [
-  { id: 4, id_siswa: 5, id_jadwal: 5, tanggal_mulai: "2025-01-23T08:00", tanggal_selesai: "2025-01-23T09:30", durasi: 90 }
+  { id: 4, id_siswa: 5, id_jadwal: 105, id_mapel: 6, id_jenjang: 3, tanggal_mulai: "2025-01-23T08:00", tanggal_selesai: "2025-01-23T09:00", durasi: 60 }
 ];
-
 
 const HARI = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 const DAY_SHORT: Record<string, string> = {
@@ -293,7 +283,6 @@ function TopBar({ role, setRole, globalSearch, setGlobalSearch, onLogout, logged
         />
       </div>
       <div className="flex items-center gap-3 ml-auto">
-        {/* Role switcher */}
         <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1">
           {(["student", "teacher", "admin"] as Role[]).map((r) => (
             null
@@ -319,11 +308,7 @@ function TopBar({ role, setRole, globalSearch, setGlobalSearch, onLogout, logged
 }
 
 // ─── Page: Book a Lesson (Student) ───────────────────────────────────────────
-
-
-// 1. Tambahkan parameter { loggedInId } di sini
-// Ubah baris ini agar mau menerima setActiveLessons dari App()
-function BookLesson({ loggedInId, setActiveLessons }: { loggedInId: number | null; setActiveLessons: React.Dispatch<React.SetStateAction<Les[]>> }) {
+function BookLesson({ loggedInId, setActiveLessons }: any) {
   const [step, setStep] = useState(1);
   const [selJenjang, setSelJenjang] = useState("");
   const [selMapel, setSelMapel] = useState("");
@@ -332,124 +317,77 @@ function BookLesson({ loggedInId, setActiveLessons }: { loggedInId: number | nul
   const [endDate, setEndDate] = useState("");
   const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
   const [booked, setBooked] = useState(false);
-  // selSlots: key = "hari|jam_mulai|jam_selesai", value = { hari, jam_mulai, jam_selesai, id_jadwal }
-  const [selSlots, setSelSlots] = useState<{ key: string; hari: string; jam_mulai: string; jam_selesai: string; id_jadwal: number }[]>([]);
 
-  const filteredMapel = MAPEL.filter((m) => m.id_jenjang === Number(selJenjang));
+  const [selSlots, setSelSlots] = useState<JadwalKesediaan[]>([]);
+  const [selPickedDays, setSelPickedDays] = useState<string[]>([]);
 
   const filteredGuru = useMemo(() => {
     if (!selJenjang || !selMapel) return [];
-    return KEAHLIAN.filter(
-      (k) => k.id_jenjang === Number(selJenjang) && k.id_mapel === Number(selMapel)
-    ).map((k) => GURU.find((g) => g.id === k.id_guru)!).filter(Boolean);
+    const validGuruIds = KEAHLIAN.filter(k => k.id_jenjang === Number(selJenjang) && k.id_mapel === Number(selMapel)).map(k => k.id_guru);
+    return GURU.filter(g => validGuruIds.includes(g.id));
   }, [selJenjang, selMapel]);
 
   const guruJadwal = useMemo(() => {
     if (selGurus.length === 0) return [];
-    const keahlianIds = KEAHLIAN.filter(
-      (k) => selGurus.includes(k.id_guru) && k.id_jenjang === Number(selJenjang) && k.id_mapel === Number(selMapel)
-    ).map((k) => k.id);
-    return JADWAL.filter((j) => keahlianIds.includes(j.id_keahlian));
-  }, [selGurus, selJenjang, selMapel]);
+    return JADWAL.filter((j) => selGurus.includes(j.id_guru) && j.status === "tersedia");
+  }, [selGurus]);
 
-  // Generate 1-hour slots from a time window
-  function generateSlots(jam_mulai: string, jam_selesai: string, id_jadwal: number, hari: string) {
-    const slots: { key: string; hari: string; jam_mulai: string; jam_selesai: string; id_jadwal: number }[] = [];
-    let start = timeToMinutes(jam_mulai);
-    const end = timeToMinutes(jam_selesai);
-    while (start + 60 <= end) {
-      const slotStart = `${String(Math.floor(start / 60)).padStart(2, "0")}:${String(start % 60).padStart(2, "0")}`;
-      const slotEnd = `${String(Math.floor((start + 60) / 60)).padStart(2, "0")}:${String((start + 60) % 60).padStart(2, "0")}`;
-      // Tambahkan id_jadwal di depan key
-      slots.push({ key: `${id_jadwal}|${hari}|${slotStart}|${slotEnd}`, hari, jam_mulai: slotStart, jam_selesai: slotEnd, id_jadwal });
-      start += 60;
-    }
-    return slots;
-  }
-
-  // Available days (unique) from guruJadwal
   const availableDays = useMemo(() => [...new Set(guruJadwal.map((j) => j.hari))], [guruJadwal]);
 
-  // Selected days from the day-picker (full day names like "Monday")
-  const [selPickedDays, setSelPickedDays] = useState<string[]>([]);
+  const slotsForPickedDays = useMemo(() => {
+    return guruJadwal.filter((j) => selPickedDays.includes(j.hari));
+  }, [selPickedDays, guruJadwal]);
 
   function togglePickedDay(day: string) {
     setSelPickedDays((prev) => {
       const next = prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day];
-      // Remove any selected slots that no longer match picked days
       setSelSlots((s) => s.filter((sl) => next.includes(sl.hari)));
       return next;
     });
   }
 
-  // All 1-hour slots for the picked days
-  const slotsForPickedDays = useMemo(() => {
-    return selPickedDays.flatMap((day) => {
-      const jadwal = guruJadwal.find((j) => j.hari === day);
-      if (!jadwal) return [];
-      return generateSlots(jadwal.jam_mulai, jadwal.jam_selesai, jadwal.id, jadwal.hari);
-    });
-  }, [selPickedDays, guruJadwal]);
-
-  function toggleSlot(slot: typeof selSlots[number]) {
+  function toggleSlot(slot: JadwalKesediaan) {
     setSelSlots((prev) => {
-      const exists = prev.find((s) => s.key === slot.key);
-      if (exists) return prev.filter((s) => s.key !== slot.key);
+      const exists = prev.find((s) => s.id === slot.id);
+      if (exists) return prev.filter((s) => s.id !== slot.id);
       return [...prev, slot];
     });
-    // Advance to step 4 on first slot selection
     if (selSlots.length === 0) setStep(4);
   }
 
-  // Use first selected slot as the "selJadwal" for legacy summary / booking
-  const selJadwalObj = selSlots.length > 0
-    ? { ...JADWAL.find((j) => j.id === selSlots[0].id_jadwal)!, jam_mulai: selSlots[0].jam_mulai, jam_selesai: selSlots[0].jam_selesai, hari: selSlots[0].hari }
-    : null;
-  const selGuruObjs = GURU.filter((g) => selGurus.includes(g.id));
   const selMapelObj = MAPEL.find((m) => m.id === Number(selMapel));
   const selJenjangObj = JENJANG.find((j) => j.id === Number(selJenjang));
+  const selGuruObjs = GURU.filter((g) => selGurus.includes(g.id));
 
-  // Build set of fully-booked slot IDs for the selected date range
   const bookedSlotIds = useMemo(() => {
     if (selGurus.length === 0 || !startDate || !endDate) return new Set<number>();
-    const guruKeahlianIds = KEAHLIAN.filter((k) => selGurus.includes(k.id_guru)).map((k) => k.id);
-    const guruJadwalIds = JADWAL.filter((j) => guruKeahlianIds.includes(j.id_keahlian)).map((j) => j.id);
     const bookedIds = new Set<number>();
-    guruJadwalIds.forEach((jid) => {
+    guruJadwal.forEach((j) => {
       const hasBooking = LES_DATA.some((l) => {
-        if (l.id_jadwal !== jid) return false;
+        if (l.id_jadwal !== j.id) return false;
         const d = l.tanggal_mulai.split("T")[0];
         return d >= startDate && d <= endDate;
       });
-      if (hasBooking) bookedIds.add(jid);
+      if (hasBooking) bookedIds.add(j.id);
     });
     return bookedIds;
-  }, [selGurus, startDate, endDate]);
+  }, [selGurus, startDate, endDate, guruJadwal]);
 
   async function handleBook() {
     if (selSlots.length === 0 || !startDate || !endDate) return;
-
     const start = new Date(startDate);
     const end = new Date(endDate);
-
-    // Daftar index hari untuk pencocokan otomatis (0 = Sunday, 1 = Monday, dst)
     const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
     try {
-      // 1. Loop pertama: Iterasi setiap slot (jam) yang dipilih user
       for (const slot of selSlots) {
         const slotDayIdx = dayNames.indexOf(slot.hari);
-
-        // Set tanggal awal untuk slot ini, lalu geser maju sampai harinya pas dengan slot.hari
-        // (Misal: User pilih start date hari Selasa, tapi slotnya hari Jumat, maka majukan ke Jumat)
         let currentDate = new Date(start);
         while (currentDate.getDay() !== slotDayIdx) {
           currentDate.setDate(currentDate.getDate() + 1);
         }
 
-        // 2. Loop kedua (Recurring): Dari tanggal yang sudah pas, booking setiap minggu sampai melewati endDate
         while (currentDate <= end) {
-          // Format ke YYYY-MM-DD
           const year = currentDate.getFullYear();
           const month = String(currentDate.getMonth() + 1).padStart(2, "0");
           const dateStr = String(currentDate.getDate()).padStart(2, "0");
@@ -457,16 +395,16 @@ function BookLesson({ loggedInId, setActiveLessons }: { loggedInId: number | nul
 
           const payload = {
             id_siswa: loggedInId,
-            id_jadwal: slot.id_jadwal,
+            id_jadwal: slot.id,
+            id_mapel: Number(selMapel),
+            id_jenjang: Number(selJenjang),
             tanggal_mulai: `${formattedDate}T${slot.jam_mulai}`,
             tanggal_selesai: `${formattedDate}T${slot.jam_selesai}`,
-            durasi: 60, // Durasi pasti 60 menit karena sistem slot per jam
+            durasi: 60,
           };
 
-          // Tembak ke Backend Java
           const response = await fetch("http://localhost:8080/api/les", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
+            method: "POST", headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload),
           });
 
@@ -475,16 +413,12 @@ function BookLesson({ loggedInId, setActiveLessons }: { loggedInId: number | nul
             setToast({ msg: "Gagal booking: " + result.pesan, type: "error" });
             return;
           }
-
-          // Tambah 7 hari untuk mengeksekusi jadwal minggu depannya
           currentDate.setDate(currentDate.getDate() + 7);
         }
       }
 
       setBooked(true);
       setToast({ msg: "Recurring lessons booked successfully!", type: "success" });
-
-      // Reload riwayat les agar langsung muncul di dashboard
       if (loggedInId) {
         fetch(`http://localhost:8080/api/les/siswa?id_siswa=${loggedInId}`)
           .then((res) => res.json())
@@ -496,27 +430,22 @@ function BookLesson({ loggedInId, setActiveLessons }: { loggedInId: number | nul
   }
 
   const summaryComplete = selJenjang && selMapel && selGurus.length > 0 && selSlots.length > 0 && startDate && endDate;
-  const totalWeeks = startDate && endDate
-    ? Math.ceil((new Date(endDate).getTime() - new Date(startDate).getTime()) / (7 * 86400000))
-    : 0;
+  const totalWeeks = startDate && endDate ? Math.ceil((new Date(endDate).getTime() - new Date(startDate).getTime()) / (7 * 86400000)) : 0;
   const totalSessions = totalWeeks * selSlots.length;
 
   return (
     <div className="flex gap-0 h-full relative">
       {toast && <Toast message={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
-      {/* Left — Booking Form 60% */}
       <div className="flex-[3] pr-6 space-y-6 overflow-y-auto max-h-[calc(100vh-3.5rem)] pb-8">
         <div>
           <h1 className="text-xl font-bold text-slate-800">Book a Lesson</h1>
           <p className="text-sm text-slate-500 mt-0.5">Follow the steps below to schedule your private tutoring session.</p>
         </div>
-        {/* Step indicators */}
         <div className="flex items-center gap-0">
           {["Education Level & Subject", "Choose Teacher", "Availability", "Schedule Details"].map((s, i) => (
             <div key={s} className="flex items-center flex-1 last:flex-none">
               <button onClick={() => setStep(i + 1)} className="flex items-center gap-2 group">
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 transition-all ${step > i + 1 ? "bg-emerald-500 text-white" : step === i + 1 ? "bg-[#4361EE] text-white" : "bg-slate-200 text-slate-500"
-                  }`}>
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 transition-all ${step > i + 1 ? "bg-emerald-500 text-white" : step === i + 1 ? "bg-[#4361EE] text-white" : "bg-slate-200 text-slate-500"}`}>
                   {step > i + 1 ? <Check size={12} /> : i + 1}
                 </div>
                 <span className={`text-xs font-medium whitespace-nowrap ${step === i + 1 ? "text-[#4361EE]" : "text-slate-400"}`}>{s}</span>
@@ -529,24 +458,16 @@ function BookLesson({ loggedInId, setActiveLessons }: { loggedInId: number | nul
         {/* Step 1 */}
         <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-4">
           <h2 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-            <span className="w-5 h-5 bg-[#4361EE] text-white rounded-full flex items-center justify-center text-xs">1</span>
-            Education Level &amp; Subject
+            <span className="w-5 h-5 bg-[#4361EE] text-white rounded-full flex items-center justify-center text-xs">1</span> Education Level &amp; Subject
           </h2>
           <div className="grid grid-cols-2 gap-4">
-            <Select
-              label="Education Level"
-              value={selJenjang}
-              onChange={(v) => { setSelJenjang(v); setSelMapel(""); setSelGurus([]); setSelSlots([]); }}
-              options={JENJANG.map((j) => ({ value: String(j.id), label: j.nama }))}
-              placeholder="Select level" required
-            />
-            <Select
-              label="Subject"
-              value={selMapel}
-              onChange={(v) => { setSelMapel(v); setSelGurus([]); setSelSlots([]); }}
-              options={filteredMapel.map((m) => ({ value: String(m.id), label: m.nama }))}
-              placeholder={selJenjang ? "Select subject" : "Select level first"} required
-            />
+            <Select label="Education Level" value={selJenjang}
+              onChange={(v: string) => { setSelJenjang(v); setSelMapel(""); setSelGurus([]); setSelSlots([]); }}
+              options={JENJANG.map((j) => ({ value: String(j.id), label: j.nama }))} placeholder="Select level" required />
+            <Select label="Subject" value={selMapel}
+              onChange={(v: string) => { setSelMapel(v); setSelGurus([]); setSelSlots([]); }}
+              options={MAPEL.map((m) => ({ value: String(m.id), label: m.nama }))}
+              placeholder={selJenjang ? "Select subject" : "Select level first"} required />
           </div>
           {selJenjang && selMapel && (
             <div className="flex justify-end">
@@ -559,54 +480,35 @@ function BookLesson({ loggedInId, setActiveLessons }: { loggedInId: number | nul
         {selMapel && (
           <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-4">
             <h2 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-              <span className="w-5 h-5 bg-[#4361EE] text-white rounded-full flex items-center justify-center text-xs">2</span>
-              Choose Teachers (Bisa pilih lebih dari 1)
+              <span className="w-5 h-5 bg-[#4361EE] text-white rounded-full flex items-center justify-center text-xs">2</span> Choose Teachers
             </h2>
             {filteredGuru.length === 0 ? (
-              <p className="text-sm text-slate-400 text-center py-4">No teachers available for this subject and level.</p>
+              <p className="text-sm text-slate-400 text-center py-4">No teachers available.</p>
             ) : (
               <div className="grid grid-cols-2 gap-3">
                 {filteredGuru.map((g) => (
-                  <button
-                    key={g.id}
-                    onClick={() => {
-                      // Logika centang / hapus centang guru
-                      setSelGurus(prev => prev.includes(g.id) ? prev.filter(id => id !== g.id) : [...prev, g.id]);
-                      // Reset pilihan jam jika guru berubah
-                      setSelPickedDays([]);
-                      setSelSlots([]);
-                    }}
-                    className={`text-left p-4 border rounded-xl flex items-start gap-3 transition-all hover:border-[#4361EE]/50 hover:bg-indigo-50/50 ${selGurus.includes(g.id) ? "border-[#4361EE] bg-indigo-50 ring-1 ring-[#4361EE]/20" : "border-slate-200"}`}
-                  >
+                  <button key={g.id} onClick={() => { setSelGurus(prev => prev.includes(g.id) ? prev.filter(id => id !== g.id) : [...prev, g.id]); setSelPickedDays([]); setSelSlots([]); }}
+                    className={`text-left p-4 border rounded-xl flex items-start gap-3 transition-all ${selGurus.includes(g.id) ? "border-[#4361EE] bg-indigo-50 ring-1 ring-[#4361EE]/20" : "border-slate-200 hover:bg-slate-50"}`}>
                     <Avatar name={g.nama} size="lg" />
                     <div>
                       <p className="text-sm font-semibold text-slate-800 leading-tight">{g.nama}</p>
                       <p className="text-xs text-slate-400 mt-0.5">{g.email}</p>
                     </div>
-                    {selGurus.includes(g.id) && <Check size={16} className="ml-auto text-[#4361EE] flex-shrink-0" />}
+                    {selGurus.includes(g.id) && <Check size={16} className="ml-auto text-[#4361EE]" />}
                   </button>
                 ))}
               </div>
             )}
-
-            {/* Tombol Next dimunculkan kalau ada minimal 1 guru dipilih */}
-            {selGurus.length > 0 && (
-              <div className="flex justify-end pt-2">
-                <Button onClick={() => setStep(3)} size="sm">Next: Availability <ChevronRight size={14} /></Button>
-              </div>
-            )}
+            {selGurus.length > 0 && <div className="flex justify-end pt-2"><Button onClick={() => setStep(3)} size="sm">Next: Availability <ChevronRight size={14} /></Button></div>}
           </div>
         )}
 
-        {/* Step 3 — Day picker + 1-hour slots */}
+        {/* Step 3 */}
         {selGurus.length > 0 && (
           <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-5">
             <h2 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-              <span className="w-5 h-5 bg-[#4361EE] text-white rounded-full flex items-center justify-center text-xs">3</span>
-              Teacher Availability
+              <span className="w-5 h-5 bg-[#4361EE] text-white rounded-full flex items-center justify-center text-xs">3</span> Teacher Availability
             </h2>
-
-            {/* Day picker */}
             <div className="space-y-2">
               <p className="text-xs font-medium text-slate-600">Pilih Hari <span className="text-red-400">*</span></p>
               <div className="flex gap-2 flex-wrap">
@@ -614,27 +516,14 @@ function BookLesson({ loggedInId, setActiveLessons }: { loggedInId: number | nul
                   const isAvail = availableDays.includes(day);
                   const sel = selPickedDays.includes(day);
                   return (
-                    <button
-                      key={day}
-                      type="button"
-                      onClick={() => isAvail && togglePickedDay(day)}
-                      disabled={!isAvail}
-                      className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${!isAvail
-                        ? "border-slate-200 text-slate-300 bg-slate-50 cursor-not-allowed"
-                        : sel
-                          ? "border-[#4361EE] bg-[#4361EE] text-white"
-                          : "border-slate-300 text-slate-600 hover:border-[#4361EE] hover:text-[#4361EE]"
-                        }`}
-                    >
+                    <button key={day} type="button" onClick={() => isAvail && togglePickedDay(day)} disabled={!isAvail}
+                      className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${!isAvail ? "border-slate-200 text-slate-300 bg-slate-50 cursor-not-allowed" : sel ? "border-[#4361EE] bg-[#4361EE] text-white" : "border-slate-300 text-slate-600 hover:border-[#4361EE] hover:text-[#4361EE]"}`}>
                       {DAY_SHORT[day]}
                     </button>
                   );
                 })}
               </div>
-              <p className="text-xs text-slate-400">Hanya hari yang tersedia untuk guru ini yang bisa dipilih. Bisa pilih lebih dari 1 hari.</p>
             </div>
-
-            {/* Slot grid per day */}
             {selPickedDays.length > 0 && (
               <div className="space-y-4">
                 <p className="text-xs font-medium text-slate-600">Pilih Slot (1 jam) <span className="text-red-400">*</span></p>
@@ -645,24 +534,13 @@ function BookLesson({ loggedInId, setActiveLessons }: { loggedInId: number | nul
                       <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{day}</p>
                       <div className="flex gap-2 flex-wrap">
                         {daySlots.map((slot) => {
-                          const isSel = selSlots.some((s) => s.key === slot.key);
-                          const isBooked = bookedSlotIds.has(slot.id_jadwal);
-
-                          // Cari nama guru pemilik slot ini
-                          const slotJadwal = JADWAL.find(j => j.id === slot.id_jadwal);
-                          const slotKeahlian = KEAHLIAN.find(k => k.id === slotJadwal?.id_keahlian);
-                          const slotGuru = GURU.find(g => g.id === slotKeahlian?.id_guru);
-
+                          const isSel = selSlots.some((s) => s.id === slot.id);
+                          const isBooked = bookedSlotIds.has(slot.id);
+                          const slotGuru = GURU.find(g => g.id === slot.id_guru);
                           return (
-                            <button
-                              key={slot.key}
-                              type="button"
-                              onClick={() => !isBooked && toggleSlot(slot)}
-                              disabled={isBooked}
-                              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-semibold transition-all ... (sama seperti sebelumnya) ... `}
-                            >
+                            <button key={slot.id} type="button" onClick={() => !isBooked && toggleSlot(slot)} disabled={isBooked}
+                              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-semibold transition-all ${isBooked ? "bg-slate-50 border-slate-200 text-slate-400 cursor-not-allowed" : isSel ? "bg-[#4361EE] border-[#4361EE] text-white" : "bg-white border-slate-200 text-slate-600 hover:border-[#4361EE] hover:text-[#4361EE]"}`}>
                               <Clock size={11} />
-                              {/* Tampilkan Jam + Nama Depan Gurunya */}
                               {slot.jam_mulai} – {slot.jam_selesai} ({slotGuru?.nama.split(" ")[0]})
                               {isBooked && <span className="ml-1 text-red-400">(Full)</span>}
                               {isSel && <Check size={11} className="ml-1" />}
@@ -673,53 +551,22 @@ function BookLesson({ loggedInId, setActiveLessons }: { loggedInId: number | nul
                     </div>
                   );
                 })}
-                {selSlots.length > 0 && (
-                  <div className="flex justify-end">
-                    <Button onClick={() => setStep(4)} size="sm">Next: Schedule Details <ChevronRight size={14} /></Button>
-                  </div>
-                )}
+                {selSlots.length > 0 && <div className="flex justify-end"><Button onClick={() => setStep(4)} size="sm">Next: Schedule Details <ChevronRight size={14} /></Button></div>}
               </div>
             )}
           </div>
         )}
 
-        {/* Step 4 — Recurring Schedule Details */}
+        {/* Step 4 */}
         {selSlots.length > 0 && (
           <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-5">
             <h2 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-              <span className="w-5 h-5 bg-[#4361EE] text-white rounded-full flex items-center justify-center text-xs">4</span>
-              Schedule Details
+              <span className="w-5 h-5 bg-[#4361EE] text-white rounded-full flex items-center justify-center text-xs">4</span> Schedule Details
             </h2>
-            <p className="text-xs text-slate-500">
-              Set the lesson period. Sessions will recur weekly for each selected slot within the date range.
-            </p>
-
-            {/* Date range */}
             <div className="grid grid-cols-2 gap-4">
               <Input label="Start Date" type="date" value={startDate} onChange={setStartDate} required />
               <Input label="End Date" type="date" value={endDate} onChange={setEndDate} min={startDate} required />
             </div>
-
-            {/* Subject (read-only display) */}
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-slate-600">Subject</label>
-              <div className="px-3 py-2 text-sm border border-slate-200 rounded-lg bg-slate-50 text-slate-700">
-                {selMapelObj?.nama ?? "—"} &nbsp;·&nbsp; {selJenjangObj?.nama}
-              </div>
-            </div>
-
-            {/* Selected slots summary */}
-            <div className="flex flex-col gap-2">
-              <label className="text-xs font-medium text-slate-600">Slot Terpilih</label>
-              <div className="flex gap-2 flex-wrap">
-                {selSlots.map((slot) => (
-                  <span key={slot.key} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 border border-[#4361EE]/30 text-[#4361EE] rounded-lg text-xs font-semibold">
-                    <Clock size={11} />{slot.hari} · {slot.jam_mulai}–{slot.jam_selesai}
-                  </span>
-                ))}
-              </div>
-            </div>
-
             {summaryComplete && (
               <Button onClick={handleBook} disabled={booked} icon={<BookOpen size={15} />}>
                 {booked ? "Booked!" : "Confirm Recurring Booking"}
@@ -729,7 +576,7 @@ function BookLesson({ loggedInId, setActiveLessons }: { loggedInId: number | nul
         )}
       </div>
 
-      {/* Right — Booking Summary 40% */}
+      {/* Right — Summary */}
       <div className="flex-[2] pl-6 border-l border-slate-200">
         <div className="sticky top-6 space-y-4">
           <h2 className="text-sm font-semibold text-slate-700">Booking Summary</h2>
@@ -737,28 +584,16 @@ function BookLesson({ loggedInId, setActiveLessons }: { loggedInId: number | nul
             <div className="bg-[#4361EE] px-5 py-4">
               <p className="text-white/70 text-xs font-medium uppercase tracking-wider">Recurring Tutoring Session</p>
               <p className="text-white text-lg font-bold mt-1">
-                {selMapelObj ? selMapelObj.nama : "—"}
-                {selJenjangObj && <span className="text-white/70 text-sm font-normal ml-1">({selJenjangObj.nama})</span>}
+                {selMapelObj ? selMapelObj.nama : "—"} {selJenjangObj && <span className="text-white/70 text-sm font-normal ml-1">({selJenjangObj.nama})</span>}
               </p>
             </div>
             <div className="p-5 space-y-4">
-              <SummaryRow
-                icon={<UserCheck size={14} />}
-                label="Teacher"
-                value={selGuruObjs.length > 0 ? selGuruObjs.map(g => g.nama).join(", ") : "Not selected"}
-              />
+              <SummaryRow icon={<UserCheck size={14} />} label="Teacher" value={selGuruObjs.length > 0 ? selGuruObjs.map(g => g.nama).join(", ") : "Not selected"} />
               <SummaryRow icon={<Clock size={14} />} label="Time Window" value={selSlots.length > 0 ? `${selSlots.length} slot dipilih` : "Not selected"} />
               <div className="border-t border-slate-100 pt-4 space-y-3">
                 <SummaryRow icon={<Calendar size={14} />} label="Start Date" value={startDate ? formatDate(startDate + "T00:00") : "Not set"} />
                 <SummaryRow icon={<Calendar size={14} />} label="End Date" value={endDate ? formatDate(endDate + "T00:00") : "Not set"} />
-                <SummaryRow
-                  icon={<Clock size={14} />}
-                  label="Slots"
-                  value={selSlots.length > 0 ? selSlots.map((s) => `${s.hari} ${s.jam_mulai}-${s.jam_selesai}`).join(", ") : "Not selected"}
-                />
-                {totalSessions > 0 && (
-                  <SummaryRow icon={<BookOpen size={14} />} label="Total Sessions" value={`~${totalSessions} sessions`} />
-                )}
+                <SummaryRow icon={<Clock size={14} />} label="Slots" value={selSlots.length > 0 ? selSlots.map((s) => `${s.hari} ${s.jam_mulai}`).join(", ") : "Not selected"} />
               </div>
               {summaryComplete && (
                 <div className={`rounded-lg p-3 text-xs font-medium flex items-center gap-2 ${booked ? "bg-emerald-50 text-emerald-700" : "bg-indigo-50 text-[#4361EE]"}`}>
@@ -774,7 +609,7 @@ function BookLesson({ loggedInId, setActiveLessons }: { loggedInId: number | nul
   );
 }
 
-function SummaryRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+function SummaryRow({ icon, label, value }: any) {
   return (
     <div className="flex items-center gap-3">
       <div className="text-slate-400 flex-shrink-0">{icon}</div>
@@ -787,37 +622,16 @@ function SummaryRow({ icon, label, value }: { icon: React.ReactNode; label: stri
 }
 
 // ─── Page: My Lessons (Student) ────────────────────────────────────────────
-function MyLessons({ loggedInId, activeLessons }: { loggedInId: number | null; activeLessons: Les[] }) {
-  // Ganti LES_DATA menjadi activeLessons
+function MyLessons({ loggedInId, activeLessons }: any) {
   const myLes = activeLessons;
-  const [calMonth, setCalMonth] = useState(new Date(2025, 0));
-
-  const lessDates = new Set(myLes.map((l) => l.tanggal_mulai.split("T")[0]));
-
-  function getDaysInMonth(y: number, m: number) {
-    return new Date(y, m + 1, 0).getDate();
-  }
-  function getFirstDay(y: number, m: number) {
-    return new Date(y, m, 1).getDay();
-  }
-  const year = calMonth.getFullYear();
-  const month = calMonth.getMonth();
-  const days = getDaysInMonth(year, month);
-  const firstDay = getFirstDay(year, month);
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-xl font-bold text-slate-800">My Lessons</h1>
-        <p className="text-sm text-slate-500 mt-0.5">All your scheduled and completed private tutoring sessions.</p>
       </div>
       <div className="flex gap-6 items-start">
-        {/* Table */}
         <div className="flex-1 bg-white border border-slate-200 rounded-xl overflow-hidden">
-          <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
-            <p className="text-sm font-semibold text-slate-700">Lesson History</p>
-            <Badge label={`${myLes.length} sessions`} variant="info" />
-          </div>
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-100">
@@ -827,89 +641,35 @@ function MyLessons({ loggedInId, activeLessons }: { loggedInId: number | null; a
               </tr>
             </thead>
             <tbody>
-              {/* 1. Pelindung kalau server Java ngirim error atau data kosong yang bukan array */}
-              {!Array.isArray(myLes) && (
-                <tr><td colSpan={6} className="px-5 py-8 text-center text-sm text-red-500">Gagal memuat data dari database. Pastikan server Java jalan.</td></tr>
-              )}
+              {Array.isArray(myLes) && myLes.map((les: any) => {
+                const mapel = MAPEL.find((m) => m.id === les.id_mapel);
+                // FIX: guru diambil dari jadwal.id_guru langsung (bukan lewat keahlian)
+                const jadwal = JADWAL.find((j) => j.id === les.id_jadwal);
+                const guru = GURU.find((g) => g.id === jadwal?.id_guru);
 
-              {/* 2. Tampilkan pesan kosong kalau datanya aman tapi memang belum ada les */}
-              {Array.isArray(myLes) && myLes.length === 0 && (
-                <tr><td colSpan={6} className="px-5 py-8 text-center text-sm text-slate-400">No lessons booked yet.</td></tr>
-              )}
-
-              {/* 3. Lakukan proses map HANYA jika datanya terbukti aman (Array) */}
-              {Array.isArray(myLes) && myLes.map((les) => {
-                const jadwal = JADWAL.find((j) => j.id === les.id_jadwal)!;
-                const keahlian = KEAHLIAN.find((k) => k.id === jadwal?.id_keahlian)!;
-                const guru = GURU.find((g) => g.id === keahlian?.id_guru)!;
-                const mapel = MAPEL.find((m) => m.id === keahlian?.id_mapel)!;
-
-                // --- VERSI AMAN (TAHAN BANTING) ---
                 const start = les.tanggal_mulai?.includes("T") ? les.tanggal_mulai.split("T")[1].substring(0, 5) : "00:00";
                 const end = les.tanggal_selesai?.includes("T") ? les.tanggal_selesai.split("T")[1].substring(0, 5) : "00:00";
                 const dur = les.durasi ? (les.durasi / 60).toFixed(1) : "0";
+                const status = new Date(les.tanggal_mulai) < new Date() ? "Completed" : "Upcoming";
 
-                const now = new Date();
-                const lesDate = new Date(les.tanggal_mulai);
-                const status = lesDate < now ? "Completed" : "Upcoming";
-
-                // ---> INI DIA TERSANGKANYA, KATA RETURN HARUS ADA! <---
                 return (
                   <tr key={les.id} className="border-b border-slate-50 hover:bg-slate-50/80 transition-colors">
-                    <td className="px-5 py-3.5"><span className="font-medium text-slate-800">{mapel?.nama}</span></td>
+                    <td className="px-5 py-3.5"><span className="font-medium text-slate-800">{mapel?.nama || "Unknown"}</span></td>
                     <td className="px-5 py-3.5">
                       <div className="flex items-center gap-2">
-                        <Avatar name={guru?.nama ?? ""} size="sm" />
-                        <span className="text-slate-600">{guru?.nama}</span>
+                        <Avatar name={guru?.nama ?? "?"} size="sm" />
+                        <span className="text-slate-600">{guru?.nama || "-"}</span>
                       </div>
                     </td>
-                    <td className="px-5 py-3.5 text-slate-600">
-                      {les.tanggal_mulai ? formatDate(les.tanggal_mulai) : "-"}
-                    </td>
+                    <td className="px-5 py-3.5 text-slate-600">{les.tanggal_mulai ? formatDate(les.tanggal_mulai) : "-"}</td>
                     <td className="px-5 py-3.5 text-slate-600">{start} - {end}</td>
                     <td className="px-5 py-3.5 text-slate-600">{dur} hrs</td>
-                    <td className="px-5 py-3.5">
-                      <Badge label={status} variant={status === "Completed" ? "success" : "warning"} />
-                    </td>
+                    <td className="px-5 py-3.5"><Badge label={status} variant={status === "Completed" ? "success" : "warning"} /></td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
-        </div>
-        {/* Mini calendar */}
-        <div className="w-64 flex-shrink-0 bg-white border border-slate-200 rounded-xl p-4">
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-sm font-semibold text-slate-700">
-              {calMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
-            </p>
-            <div className="flex gap-1">
-              <button onClick={() => setCalMonth(new Date(year, month - 1))} className="p-1 hover:bg-slate-100 rounded"><ChevronLeft size={14} /></button>
-              <button onClick={() => setCalMonth(new Date(year, month + 1))} className="p-1 hover:bg-slate-100 rounded"><ChevronRight size={14} /></button>
-            </div>
-          </div>
-          <div className="grid grid-cols-7 gap-0.5 text-center mb-1">
-            {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((d) => (
-              <div key={d} className="text-xs text-slate-400 font-medium py-1">{d}</div>
-            ))}
-          </div>
-          <div className="grid grid-cols-7 gap-0.5 text-center">
-            {Array.from({ length: firstDay }).map((_, i) => <div key={`e${i}`} />)}
-            {Array.from({ length: days }).map((_, i) => {
-              const d = i + 1;
-              const iso = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-              const hasLesson = lessDates.has(iso);
-              return (
-                <div key={d} className={`text-xs py-1 rounded-full w-6 h-6 mx-auto flex items-center justify-center cursor-default transition-all ${hasLesson ? "bg-[#4361EE] text-white font-semibold" : "text-slate-600 hover:bg-slate-100"}`}>
-                  {d}
-                </div>
-              );
-            })}
-          </div>
-          <div className="mt-3 pt-3 border-t border-slate-100 flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-[#4361EE]" />
-            <p className="text-xs text-slate-500">Lesson scheduled</p>
-          </div>
         </div>
       </div>
     </div>
@@ -919,31 +679,38 @@ function MyLessons({ loggedInId, activeLessons }: { loggedInId: number | null; a
 // ─── Page: Teacher Availability ────────────────────────────────────────────
 function TeacherAvailability() {
   const guruId = 1;
-  const [availList, setAvailList] = useState<JadwalKesediaan[]>(
-    JADWAL.filter((j) => KEAHLIAN.filter((k) => k.id_guru === guruId).map((k) => k.id).includes(j.id_keahlian))
-  );
+  const [availList, setAvailList] = useState<JadwalKesediaan[]>(JADWAL.filter((j) => j.id_guru === guruId));
   const [hari, setHari] = useState("");
   const [jamMulai, setJamMulai] = useState("");
   const [jamSelesai, setJamSelesai] = useState("");
-  const [selKeahlian, setSelKeahlian] = useState("");
   const [toast, setToast] = useState<string | null>(null);
 
-  const myKeahlian = KEAHLIAN.filter((k) => k.id_guru === guruId);
-
   function handleAdd() {
-    if (!hari || !jamMulai || !jamSelesai || !selKeahlian) return;
+    if (!hari || !jamMulai || !jamSelesai) return;
 
-    // Input type="time" otomatis menghasilkan format "HH:MM" (24 jam) yang aman untuk SQL Server
-    const newJ: JadwalKesediaan = {
-      id: Date.now(),
-      id_keahlian: Number(selKeahlian),
-      hari,
-      jam_mulai: jamMulai, // Format: "14:30" (setara 02:30 PM)
-      jam_selesai: jamSelesai,
-    };
-    setAvailList((p) => [...p, newJ]);
-    setToast("Availability window added!");
-    setHari(""); setJamMulai(""); setJamSelesai(""); setSelKeahlian("");
+    let start = timeToMinutes(jamMulai);
+    const end = timeToMinutes(jamSelesai);
+    const newSlots: JadwalKesediaan[] = [];
+
+    while (start + 60 <= end) {
+      const slotStart = `${String(Math.floor(start / 60)).padStart(2, "0")}:${String(start % 60).padStart(2, "0")}`;
+      const slotEnd = `${String(Math.floor((start + 60) / 60)).padStart(2, "0")}:${String((start + 60) % 60).padStart(2, "0")}`;
+
+      newSlots.push({
+        id: Date.now() + start,
+        hari,
+        jam_mulai: slotStart,
+        jam_selesai: slotEnd,
+        id_guru: guruId,
+        id_admin: 1,
+        status: "tersedia",
+      });
+      start += 60;
+    }
+
+    setAvailList((p) => [...p, ...newSlots]);
+    setToast("Availability slots added successfully!");
+    setHari(""); setJamMulai(""); setJamSelesai("");
   }
 
   function handleRemove(id: number) {
@@ -958,57 +725,36 @@ function TeacherAvailability() {
         <p className="text-sm text-slate-500 mt-0.5">Set the days and time windows when you are available to teach.</p>
       </div>
       <div className="flex gap-6 items-start">
-        {/* Form */}
         <div className="w-80 flex-shrink-0 bg-white border border-slate-200 rounded-xl p-5 space-y-4">
-          <h2 className="text-sm font-semibold text-slate-700">Add Availability Window</h2>
-          <Select label="Subject & Level" value={selKeahlian} onChange={setSelKeahlian}
-            options={myKeahlian.map((k) => {
-              const mp = MAPEL.find((m) => m.id === k.id_mapel);
-              const jj = JENJANG.find((j) => j.id === k.id_jenjang);
-              return { value: String(k.id), label: `${mp?.nama} – ${jj?.nama}` };
-            })}
-            placeholder="Select subject" required />
-          <Select label="Day" value={hari} onChange={setHari}
-            options={HARI.map((h) => ({ value: h, label: h }))} placeholder="Select day" required />
+          <h2 className="text-sm font-semibold text-slate-700">Add Open Slots</h2>
+          <Select label="Day" value={hari} onChange={setHari} options={HARI.map((h) => ({ value: h, label: h }))} placeholder="Select day" required />
           <div className="grid grid-cols-2 gap-3">
             <Input label="Start Time" type="time" value={jamMulai} onChange={setJamMulai} required />
             <Input label="End Time" type="time" value={jamSelesai} onChange={setJamSelesai} required />
           </div>
-          <Button onClick={handleAdd} icon={<Plus size={15} />} className="w-full justify-center">Add Window</Button>
+          <Button onClick={handleAdd} icon={<Plus size={15} />} className="w-full justify-center">Add Time Slots</Button>
         </div>
-        {/* Availability list */}
         <div className="flex-1 bg-white border border-slate-200 rounded-xl overflow-hidden">
           <div className="px-5 py-3 border-b border-slate-100">
-            <p className="text-sm font-semibold text-slate-700">Current Availability</p>
+            <p className="text-sm font-semibold text-slate-700">Current Open Slots</p>
           </div>
-          {availList.length === 0 ? (
-            <p className="px-5 py-8 text-sm text-slate-400 text-center">No availability windows set.</p>
-          ) : (
-            <div className="divide-y divide-slate-50">
-              {availList.map((j) => {
-                const k = KEAHLIAN.find((ke) => ke.id === j.id_keahlian);
-                const mp = MAPEL.find((m) => m.id === k?.id_mapel);
-                const jj = JENJANG.find((je) => je.id === k?.id_jenjang);
-                return (
-                  <div key={j.id} className="px-5 py-4 flex items-center justify-between hover:bg-slate-50/60 transition-colors">
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 bg-indigo-50 rounded-lg flex items-center justify-center flex-shrink-0">
-                        <Clock size={16} className="text-[#4361EE]" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-semibold text-slate-700">{j.hari}</p>
-                        <p className="text-xs text-slate-400">{j.jam_mulai} – {j.jam_selesai}</p>
-                      </div>
-                      <Badge label={`${mp?.nama} – ${jj?.nama}`} variant="info" />
-                    </div>
-                    <button onClick={() => handleRemove(j.id)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all">
-                      <Trash2 size={15} />
-                    </button>
+          <div className="divide-y divide-slate-50">
+            {availList.map((j) => (
+              <div key={j.id} className="px-5 py-4 flex items-center justify-between hover:bg-slate-50/60 transition-colors">
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 bg-indigo-50 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Clock size={16} className="text-[#4361EE]" />
                   </div>
-                );
-              })}
-            </div>
-          )}
+                  <div>
+                    <p className="text-sm font-semibold text-slate-700">{j.hari}</p>
+                    <p className="text-xs text-slate-400">{j.jam_mulai} – {j.jam_selesai}</p>
+                  </div>
+                  <Badge label={j.status} variant={j.status === "tersedia" ? "success" : "warning"} />
+                </div>
+                <button onClick={() => handleRemove(j.id)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"><Trash2 size={15} /></button>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>
@@ -1019,8 +765,9 @@ function TeacherAvailability() {
 function TeacherSchedule() {
   const guruId = 1;
   const [selLesson, setSelLesson] = useState<Les | null>(null);
-  const guruKeahlianIds = KEAHLIAN.filter((k) => k.id_guru === guruId).map((k) => k.id);
-  const guruJadwalIds = JADWAL.filter((j) => guruKeahlianIds.includes(j.id_keahlian)).map((j) => j.id);
+
+  // FIX: filter jadwal langsung by id_guru, tidak pakai id_keahlian
+  const guruJadwalIds = JADWAL.filter((j) => j.id_guru === guruId).map((j) => j.id);
   const myLessons = LES_DATA.filter((l) => guruJadwalIds.includes(l.id_jadwal));
 
   const COLORS = ["bg-indigo-400", "bg-violet-400", "bg-sky-400", "bg-emerald-400", "bg-amber-400"];
@@ -1047,7 +794,6 @@ function TeacherSchedule() {
           <Button variant="secondary" size="sm">Next <ChevronRight size={14} /></Button>
         </div>
       </div>
-      {/* Weekly grid */}
       <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
         <div className="grid grid-cols-7 divide-x divide-slate-100 border-b border-slate-200">
           {weekDates.map(({ hari, date }) => (
@@ -1065,11 +811,10 @@ function TeacherSchedule() {
                 {dayLessons.length === 0 && (
                   <div className="text-xs text-slate-300 text-center mt-6">—</div>
                 )}
-                {dayLessons.map((les, i) => {
-                  const jadwal = JADWAL.find((j) => j.id === les.id_jadwal)!;
-                  const keahlian = KEAHLIAN.find((k) => k.id === jadwal?.id_keahlian)!;
-                  const mapel = MAPEL.find((m) => m.id === keahlian?.id_mapel)!;
-                  const siswa = SISWA.find((s) => s.id === les.id_siswa)!;
+                {dayLessons.map((les) => {
+                  // FIX: mapel & siswa diambil dari les.id_mapel langsung
+                  const mapel = MAPEL.find((m) => m.id === les.id_mapel);
+                  const siswa = SISWA.find((s) => s.id === les.id_siswa);
                   const start = toHHMM(les.tanggal_mulai);
                   const end = toHHMM(les.tanggal_selesai);
                   return (
@@ -1088,13 +833,15 @@ function TeacherSchedule() {
           })}
         </div>
       </div>
+
       {/* Lesson modal */}
       {selLesson && (() => {
-        const jadwal = JADWAL.find((j) => j.id === selLesson.id_jadwal)!;
-        const keahlian = KEAHLIAN.find((k) => k.id === jadwal?.id_keahlian)!;
-        const mapel = MAPEL.find((m) => m.id === keahlian?.id_mapel)!;
-        const jenjang = JENJANG.find((j) => j.id === keahlian?.id_jenjang)!;
-        const siswa = SISWA.find((s) => s.id === selLesson.id_siswa)!;
+        // FIX: ambil data dari les.id_mapel, les.id_jenjang, jadwal.id_guru
+        const mapel = MAPEL.find((m) => m.id === selLesson.id_mapel);
+        const jenjang = JENJANG.find((j) => j.id === selLesson.id_jenjang);
+        const jadwal = JADWAL.find((j) => j.id === selLesson.id_jadwal);
+        const guru = GURU.find((g) => g.id === jadwal?.id_guru);
+        const siswa = SISWA.find((s) => s.id === selLesson.id_siswa);
         const start = toHHMM(selLesson.tanggal_mulai);
         const end = toHHMM(selLesson.tanggal_selesai);
         return (
@@ -1110,7 +857,7 @@ function TeacherSchedule() {
               <div className="bg-slate-50 rounded-xl p-4 space-y-3">
                 <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Student Info</p>
                 <div className="flex items-center gap-3">
-                  <Avatar name={siswa?.nama ?? ""} size="lg" />
+                  <Avatar name={siswa?.nama ?? "?"} size="lg" />
                   <div>
                     <p className="text-sm font-semibold text-slate-800">{siswa?.nama}</p>
                     <p className="text-xs text-slate-400">{siswa?.email}</p>
@@ -1119,7 +866,6 @@ function TeacherSchedule() {
                 <div className="grid grid-cols-2 gap-3 pt-1">
                   <div><p className="text-xs text-slate-400">Phone</p><p className="text-sm font-medium text-slate-700">{siswa?.no_hp}</p></div>
                   <div><p className="text-xs text-slate-400">Gender</p><p className="text-sm font-medium text-slate-700">{siswa?.jenis_kelamin === "L" ? "Male" : "Female"}</p></div>
-
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -1164,8 +910,7 @@ function AdminStudents({ search }: { search: string }) {
   function handleDelete(id: number) { setStudents((p) => p.filter((s) => s.id !== id)); }
   function handleSave() {
     if (drawer === "add") {
-      // 1. Siapkan data yang mau dikirim, sesuaikan nama kolomnya dengan Java & SQL
-      const newId = Math.floor(Math.random() * 10000); // Simulasi ID unik
+      const newId = Math.floor(Math.random() * 10000);
       const dataSiswaBaru = {
         id_siswa: newId,
         id_jenjang: Number(form.id_jenjang),
@@ -1174,11 +919,9 @@ function AdminStudents({ search }: { search: string }) {
         jenis_Kelamin: form.jenis_kelamin,
         no_hp: form.no_hp,
         email: form.email,
-        pswrd: "siswa123", // Password default
-        alamat: form.alamat || "Belum diisi" // Data dari input alamat
+        pswrd: "siswa123",
       };
 
-      // 2. Tembakkan datanya ke server Java
       fetch("http://localhost:8080/api/siswa", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1187,7 +930,6 @@ function AdminStudents({ search }: { search: string }) {
         .then((response) => response.json())
         .then((data) => {
           if (data.status === "sukses") {
-            // 3. Jika Java bilang sukses, baru update tampilan UI tabelnya
             setStudents((p) => [...p, { ...form, id: newId } as Siswa]);
             alert("Sukses! Data " + form.nama + " tersimpan di Azure SQL.");
           } else {
@@ -1198,9 +940,7 @@ function AdminStudents({ search }: { search: string }) {
           console.error(error);
           alert("Gagal koneksi ke Back-End. Pastikan BackendServer.java menyala!");
         });
-
     } else if (editItem) {
-      // Logika untuk Edit data (Nanti bisa diarahkan ke fungsi UPDATE SQL)
       setStudents((p) => p.map((s) => s.id === editItem.id ? { ...s, ...form } as Siswa : s));
     }
     setDrawer(null);
@@ -1267,7 +1007,6 @@ function AdminStudents({ search }: { search: string }) {
           </tbody>
         </table>
       </div>
-      {/* Slide-over drawer */}
       {drawer && (
         <>
           <div className="fixed inset-0 bg-black/25 z-30" onClick={() => setDrawer(null)} />
@@ -1285,7 +1024,6 @@ function AdminStudents({ search }: { search: string }) {
               <Input label="Date of Birth" type="date" value={form.tanggal_lahir ?? ""} onChange={(v) => setForm((p) => ({ ...p, tanggal_lahir: v }))} required />
               <Input label="Email" type="email" value={form.email ?? ""} onChange={(v) => setForm((p) => ({ ...p, email: v }))} required />
               <Input label="Phone Number" value={form.no_hp ?? ""} onChange={(v) => setForm((p) => ({ ...p, no_hp: v }))} required />
-              <Input label="Alamat Rumah" value={form.alamat ?? ""} onChange={(v) => setForm((p) => ({ ...p, alamat: v }))} placeholder="Masukkan alamat lengkap" required />
             </div>
             <div className="px-6 py-4 border-t border-slate-200 flex gap-3">
               <Button variant="secondary" onClick={() => setDrawer(null)} className="flex-1 justify-center">Cancel</Button>
@@ -1483,12 +1221,10 @@ function AdminAdmins({ search }: { search: string }) {
 
 // ─── Dashboard Summary Pages ──────────────────────────────────────────────
 function StudentDashboard({ setPage, loggedInName, loggedInId, activeLessons }: { setPage: (p: string) => void; loggedInName: string; loggedInId: number | null; activeLessons: Les[] }) {
-  // Ganti LES_DATA menjadi activeLessons
   const myLes = activeLessons;
   return (
     <div className="space-y-6">
       <div>
-        {/* Nama dashboard berubah dinamis sesuai yang login */}
         <h1 className="text-xl font-bold text-slate-800">Welcome back, {loggedInName || "Siswa"}!</h1>
         <p className="text-sm text-slate-500 mt-0.5">Here is an overview of your tutoring activity.</p>
       </div>
@@ -1526,13 +1262,13 @@ function StudentDashboard({ setPage, loggedInName, loggedInId, activeLessons }: 
         <div className="bg-white border border-slate-200 rounded-xl p-5 space-y-3">
           <h2 className="text-sm font-semibold text-slate-700">Recent Lessons</h2>
           {myLes.slice(0, 2).map((les) => {
-            const jadwal = JADWAL.find((j) => j.id === les.id_jadwal)!;
-            const keahlian = KEAHLIAN.find((k) => k.id === jadwal?.id_keahlian)!;
-            const guru = GURU.find((g) => g.id === keahlian?.id_guru)!;
-            const mapel = MAPEL.find((m) => m.id === keahlian?.id_mapel)!;
+            // FIX: guru diambil lewat jadwal.id_guru, mapel lewat les.id_mapel
+            const jadwal = JADWAL.find((j) => j.id === les.id_jadwal);
+            const guru = GURU.find((g) => g.id === jadwal?.id_guru);
+            const mapel = MAPEL.find((m) => m.id === les.id_mapel);
             return (
               <div key={les.id} className="flex items-center gap-3 p-3 border border-slate-100 rounded-xl">
-                <Avatar name={guru?.nama ?? ""} size="sm" />
+                <Avatar name={guru?.nama ?? "?"} size="sm" />
                 <div>
                   <p className="text-sm font-medium text-slate-700">{mapel?.nama}</p>
                   <p className="text-xs text-slate-400">{guru?.nama} · {formatDate(les.tanggal_mulai)}</p>
@@ -1549,8 +1285,9 @@ function StudentDashboard({ setPage, loggedInName, loggedInId, activeLessons }: 
 function TeacherDashboard() {
   const guruId = 1;
   const guru = GURU.find((g) => g.id === guruId)!;
-  const guruKeahlianIds = KEAHLIAN.filter((k) => k.id_guru === guruId).map((k) => k.id);
-  const guruJadwalIds = JADWAL.filter((j) => guruKeahlianIds.includes(j.id_keahlian)).map((j) => j.id);
+
+  // FIX: filter jadwal langsung by id_guru, tidak pakai id_keahlian
+  const guruJadwalIds = JADWAL.filter((j) => j.id_guru === guruId).map((j) => j.id);
   const myLessons = LES_DATA.filter((l) => guruJadwalIds.includes(l.id_jadwal));
 
   return (
@@ -1562,7 +1299,7 @@ function TeacherDashboard() {
       <div className="grid grid-cols-4 gap-5">
         {[
           { label: "Total Lessons", value: String(myLessons.length), Icon: BookOpen, color: "bg-indigo-50 text-[#4361EE]" },
-          { label: "Availability Slots", value: String(JADWAL.filter((j) => guruKeahlianIds.includes(j.id_keahlian)).length), Icon: Clock, color: "bg-violet-50 text-violet-500" },
+          { label: "Availability Slots", value: String(JADWAL.filter((j) => j.id_guru === guruId).length), Icon: Clock, color: "bg-violet-50 text-violet-500" },
           { label: "Unique Students", value: String(new Set(myLessons.map((l) => l.id_siswa)).size), Icon: Users, color: "bg-sky-50 text-sky-500" },
           { label: "Expertise Areas", value: String(KEAHLIAN.filter((k) => k.id_guru === guruId).length), Icon: GraduationCap, color: "bg-emerald-50 text-emerald-500" },
         ].map(({ label, value, Icon, color }) => (
@@ -1620,15 +1357,15 @@ function AdminDashboard() {
           </thead>
           <tbody>
             {LES_DATA.map((les) => {
-              const jadwal = JADWAL.find((j) => j.id === les.id_jadwal)!;
-              const keahlian = KEAHLIAN.find((k) => k.id === jadwal?.id_keahlian)!;
-              const guru = GURU.find((g) => g.id === keahlian?.id_guru)!;
-              const siswa = SISWA.find((s) => s.id === les.id_siswa)!;
-              const mapel = MAPEL.find((m) => m.id === keahlian?.id_mapel)!;
+              // FIX: guru lewat jadwal.id_guru, mapel lewat les.id_mapel
+              const jadwal = JADWAL.find((j) => j.id === les.id_jadwal);
+              const guru = GURU.find((g) => g.id === jadwal?.id_guru);
+              const siswa = SISWA.find((s) => s.id === les.id_siswa);
+              const mapel = MAPEL.find((m) => m.id === les.id_mapel);
               return (
                 <tr key={les.id} className="border-b border-slate-50 hover:bg-slate-50/80 transition-colors">
                   <td className="px-5 py-3.5">
-                    <div className="flex items-center gap-2"><Avatar name={siswa?.nama ?? ""} size="sm" /><span className="font-medium text-slate-800">{siswa?.nama}</span></div>
+                    <div className="flex items-center gap-2"><Avatar name={siswa?.nama ?? "?"} size="sm" /><span className="font-medium text-slate-800">{siswa?.nama}</span></div>
                   </td>
                   <td className="px-5 py-3.5 text-slate-600">{guru?.nama}</td>
                   <td className="px-5 py-3.5"><Badge label={mapel?.nama ?? "—"} variant="info" /></td>
@@ -1640,6 +1377,115 @@ function AdminDashboard() {
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+// ─── Admin: Manage Schedules ──────────────────────────────────────────────
+function AdminSchedules({ search }: { search: string }) {
+  const [drawer, setDrawer] = useState<DrawerMode>(null);
+  const [schedules, setSchedules] = useState<JadwalKesediaan[]>(JADWAL);
+  // FIX: form tidak pakai id_keahlian, tapi id_guru
+  const [form, setForm] = useState<Partial<JadwalKesediaan>>({});
+
+  // FIX: enriched pakai jadwal.id_guru langsung
+  const enriched = schedules.map((j) => {
+    const guru = GURU.find((g) => g.id === j.id_guru);
+    return { ...j, guru };
+  }).filter((r) =>
+    [r.guru?.nama, r.hari].join(" ").toLowerCase().includes(search.toLowerCase())
+  );
+
+  function handleDelete(id: number) { setSchedules((p) => p.filter((j) => j.id !== id)); }
+  function handleSave() {
+    if (drawer === "add" && form.hari && form.jam_mulai && form.jam_selesai && form.id_guru) {
+      setSchedules((p) => [...p, {
+        id: Date.now(),
+        id_guru: form.id_guru!,
+        hari: form.hari!,
+        jam_mulai: form.jam_mulai!,
+        jam_selesai: form.jam_selesai!,
+        status: "tersedia",
+        id_admin: 1,
+      }]);
+    }
+    setDrawer(null);
+  }
+
+  return (
+    <div className="space-y-5 relative">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-bold text-slate-800">Manage Schedules</h1>
+          <p className="text-sm text-slate-500 mt-0.5">View and manage all teacher availability slots.</p>
+        </div>
+        <Button onClick={() => { setForm({}); setDrawer("add"); }} icon={<Plus size={15} />}>Add Schedule</Button>
+      </div>
+      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+        <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
+          <p className="text-sm text-slate-500">{enriched.length} schedules</p>
+          <Button variant="ghost" size="sm" icon={<Download size={14} />}>Export</Button>
+        </div>
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="bg-slate-50 border-b border-slate-100">
+              {["Teacher", "Day", "Time Slot", "Status", "Actions"].map((h) => (
+                <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {enriched.map((r) => (
+              <tr key={r.id} className="border-b border-slate-50 hover:bg-slate-50/80 transition-colors group">
+                <td className="px-5 py-3.5">
+                  <div className="flex items-center gap-2.5">
+                    <Avatar name={r.guru?.nama ?? "?"} size="sm" />
+                    <span className="font-medium text-slate-800">{r.guru?.nama ?? "—"}</span>
+                  </div>
+                </td>
+                <td className="px-5 py-3.5 font-medium text-slate-700">{r.hari}</td>
+                <td className="px-5 py-3.5 text-slate-600 font-mono text-xs">{r.jam_mulai} – {r.jam_selesai}</td>
+                <td className="px-5 py-3.5">
+                  <Badge label={r.status} variant={r.status === "tersedia" ? "success" : "warning"} />
+                </td>
+                <td className="px-5 py-3.5">
+                  <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button onClick={() => handleDelete(r.id)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"><Trash2 size={13} /></button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {drawer === "add" && (
+        <>
+          <div className="fixed inset-0 bg-black/25 z-30" onClick={() => setDrawer(null)} />
+          <div className="fixed top-0 right-0 h-full w-96 bg-white shadow-2xl z-40 flex flex-col">
+            <div className="px-6 py-5 border-b border-slate-200 flex items-center justify-between">
+              <h2 className="text-base font-bold text-slate-800">Add Availability Slot</h2>
+              <button onClick={() => setDrawer(null)} className="p-1.5 hover:bg-slate-100 rounded-lg"><X size={16} /></button>
+            </div>
+            <div className="flex-1 px-6 py-5 space-y-4">
+              {/* FIX: pilih guru langsung, tidak pakai keahlian */}
+              <Select label="Teacher" value={String(form.id_guru ?? "")}
+                onChange={(v) => setForm((p) => ({ ...p, id_guru: Number(v) }))}
+                options={GURU.map((g) => ({ value: String(g.id), label: g.nama }))}
+                placeholder="Select teacher" required />
+              <Select label="Day" value={form.hari ?? ""} onChange={(v) => setForm((p) => ({ ...p, hari: v }))}
+                options={HARI.map((h) => ({ value: h, label: h }))} placeholder="Select day" required />
+              <div className="grid grid-cols-2 gap-3">
+                <Input label="Start Time" type="time" value={form.jam_mulai ?? ""} onChange={(v) => setForm((p) => ({ ...p, jam_mulai: v }))} required />
+                <Input label="End Time" type="time" value={form.jam_selesai ?? ""} onChange={(v) => setForm((p) => ({ ...p, jam_selesai: v }))} required />
+              </div>
+            </div>
+            <div className="px-6 py-4 border-t border-slate-200 flex gap-3">
+              <Button variant="secondary" onClick={() => setDrawer(null)} className="flex-1 justify-center">Cancel</Button>
+              <Button onClick={handleSave} className="flex-1 justify-center">Add Schedule</Button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -1666,22 +1512,18 @@ function LoginPage({
     setError("");
     setLoading(true);
 
-    // 1. CEK MOCK ACCOUNT DULU
-    // Kamu bisa biarkan array MOCK_ACCOUNTS yang sudah ada, atau hardcode langsung seperti ini:
     const mockAccount = MOCK_ACCOUNTS.find(
       (a) => a.email === email && a.password === password
     );
 
     if (mockAccount) {
-      // Kalau cocok dengan mock account, langsung login (kasih delay dikit biar natural)
       setTimeout(() => {
         onLogin(mockAccount.role, mockAccount.nama, 1);
         setLoading(false);
       }, 500);
-      return; // Berhenti di sini, kode di bawahnya tidak akan dieksekusi
+      return;
     }
 
-    // 2. KALAU BUKAN MOCK ACCOUNT, BARU CEK KE DATABASE ASLI (JAVA)
     try {
       const response = await fetch("http://localhost:8080/api/login", {
         method: "POST",
@@ -1705,7 +1547,6 @@ function LoginPage({
 
   return (
     <div className="min-h-screen bg-[#F5F7FA] flex" style={{ fontFamily: "'Inter', sans-serif" }}>
-      {/* Left panel */}
       <div className="hidden lg:flex w-[480px] flex-shrink-0 bg-[#1C2B3A] flex-col justify-between p-12">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 bg-[#4361EE] rounded-xl flex items-center justify-center">
@@ -1741,10 +1582,8 @@ function LoginPage({
         <p className="text-white/20 text-xs">© 2026 EduCAPY. All rights reserved.</p>
       </div>
 
-      {/* Right panel */}
       <div className="flex-1 flex items-center justify-center p-8">
         <div className="w-full max-w-md space-y-8">
-          {/* Mobile logo */}
           <div className="flex items-center gap-2 lg:hidden">
             <div className="w-8 h-8 bg-[#4361EE] rounded-xl flex items-center justify-center">
               <Layers size={16} className="text-white" />
@@ -1883,7 +1722,6 @@ function RegisterPage({
 
   return (
     <div className="min-h-screen bg-[#F5F7FA] flex" style={{ fontFamily: "'Inter', sans-serif" }}>
-      {/* Left panel */}
       <div className="hidden lg:flex w-[480px] flex-shrink-0 bg-[#1C2B3A] flex-col justify-between p-12">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 bg-[#4361EE] rounded-xl flex items-center justify-center">
@@ -1917,7 +1755,6 @@ function RegisterPage({
         <p className="text-white/20 text-xs">© 2026 Educapy. All rights reserved.</p>
       </div>
 
-      {/* Right panel */}
       <div className="flex-1 flex items-center justify-center p-8 overflow-y-auto">
         <div className="w-full max-w-md space-y-7">
           <div>
@@ -1928,7 +1765,6 @@ function RegisterPage({
             </p>
           </div>
 
-          {/* Step indicator */}
           <div className="flex items-center gap-3">
             {["Account Type & Credentials", "Profile Details"].map((s, i) => (
               <div key={s} className="flex items-center gap-2 flex-1">
@@ -1943,7 +1779,6 @@ function RegisterPage({
 
           {step === 1 && (
             <form onSubmit={handleStep1} className="space-y-5">
-              {/* Role selector */}
               <div className="space-y-2">
                 <label className="text-xs font-medium text-slate-600">Register as <span className="text-red-400">*</span></label>
                 <div className="grid grid-cols-3 gap-2">
@@ -2020,111 +1855,6 @@ function RegisterPage({
   );
 }
 
-// ─── Admin: Manage Schedules ──────────────────────────────────────────────
-function AdminSchedules({ search }: { search: string }) {
-  const [drawer, setDrawer] = useState<DrawerMode>(null);
-  const [schedules, setSchedules] = useState<JadwalKesediaan[]>(JADWAL);
-  const [form, setForm] = useState<Partial<JadwalKesediaan & { id_guru: number }>>({});
-
-  const enriched = schedules.map((j) => {
-    const k = KEAHLIAN.find((ke) => ke.id === j.id_keahlian);
-    const guru = GURU.find((g) => g.id === k?.id_guru);
-    const mapel = MAPEL.find((m) => m.id === k?.id_mapel);
-    const jenjang = JENJANG.find((je) => je.id === k?.id_jenjang);
-    return { ...j, guru, mapel, jenjang };
-  }).filter((r) =>
-    [r.guru?.nama, r.mapel?.nama, r.hari].join(" ").toLowerCase().includes(search.toLowerCase())
-  );
-
-  function handleDelete(id: number) { setSchedules((p) => p.filter((j) => j.id !== id)); }
-  function handleSave() {
-    if (drawer === "add" && form.hari && form.jam_mulai && form.jam_selesai && form.id_keahlian) {
-      setSchedules((p) => [...p, { id: Date.now(), id_keahlian: form.id_keahlian!, hari: form.hari!, jam_mulai: form.jam_mulai!, jam_selesai: form.jam_selesai! }]);
-    }
-    setDrawer(null);
-  }
-
-  return (
-    <div className="space-y-5 relative">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-slate-800">Manage Schedules</h1>
-          <p className="text-sm text-slate-500 mt-0.5">View and manage all teacher availability windows and lesson schedules.</p>
-        </div>
-        <Button onClick={() => { setForm({}); setDrawer("add"); }} icon={<Plus size={15} />}>Add Schedule</Button>
-      </div>
-      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-        <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
-          <p className="text-sm text-slate-500">{enriched.length} schedules</p>
-          <Button variant="ghost" size="sm" icon={<Download size={14} />}>Export</Button>
-        </div>
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="bg-slate-50 border-b border-slate-100">
-              {["Teacher", "Subject", "Level", "Day", "Time Window", "Actions"].map((h) => (
-                <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {enriched.map((r) => (
-              <tr key={r.id} className="border-b border-slate-50 hover:bg-slate-50/80 transition-colors group">
-                <td className="px-5 py-3.5">
-                  <div className="flex items-center gap-2.5">
-                    <Avatar name={r.guru?.nama ?? "?"} size="sm" />
-                    <span className="font-medium text-slate-800">{r.guru?.nama ?? "—"}</span>
-                  </div>
-                </td>
-                <td className="px-5 py-3.5 text-slate-600">{r.mapel?.nama ?? "—"}</td>
-                <td className="px-5 py-3.5"><Badge label={r.jenjang?.nama ?? "—"} variant="info" /></td>
-                <td className="px-5 py-3.5 font-medium text-slate-700">{r.hari}</td>
-                <td className="px-5 py-3.5 text-slate-600 font-mono text-xs">{r.jam_mulai} – {r.jam_selesai}</td>
-                <td className="px-5 py-3.5">
-                  <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button onClick={() => handleDelete(r.id)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"><Trash2 size={13} /></button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      {drawer === "add" && (
-        <>
-          <div className="fixed inset-0 bg-black/25 z-30" onClick={() => setDrawer(null)} />
-          <div className="fixed top-0 right-0 h-full w-96 bg-white shadow-2xl z-40 flex flex-col">
-            <div className="px-6 py-5 border-b border-slate-200 flex items-center justify-between">
-              <h2 className="text-base font-bold text-slate-800">Add Availability Window</h2>
-              <button onClick={() => setDrawer(null)} className="p-1.5 hover:bg-slate-100 rounded-lg"><X size={16} /></button>
-            </div>
-            <div className="flex-1 px-6 py-5 space-y-4">
-              <Select label="Expertise (Teacher · Subject · Level)" value={String(form.id_keahlian ?? "")}
-                onChange={(v) => setForm((p) => ({ ...p, id_keahlian: Number(v) }))}
-                options={KEAHLIAN.map((k) => {
-                  const g = GURU.find((gu) => gu.id === k.id_guru);
-                  const m = MAPEL.find((mp) => mp.id === k.id_mapel);
-                  const j = JENJANG.find((je) => je.id === k.id_jenjang);
-                  return { value: String(k.id), label: `${g?.nama} · ${m?.nama} · ${j?.nama}` };
-                })}
-                placeholder="Select expertise" required />
-              <Select label="Day" value={form.hari ?? ""} onChange={(v) => setForm((p) => ({ ...p, hari: v }))}
-                options={HARI.map((h) => ({ value: h, label: h }))} placeholder="Select day" required />
-              <div className="grid grid-cols-2 gap-3">
-                <Input label="Start Time" type="time" value={form.jam_mulai ?? ""} onChange={(v) => setForm((p) => ({ ...p, jam_mulai: v }))} required />
-                <Input label="End Time" type="time" value={form.jam_selesai ?? ""} onChange={(v) => setForm((p) => ({ ...p, jam_selesai: v }))} required />
-              </div>
-            </div>
-            <div className="px-6 py-4 border-t border-slate-200 flex gap-3">
-              <Button variant="secondary" onClick={() => setDrawer(null)} className="flex-1 justify-center">Cancel</Button>
-              <Button onClick={handleSave} className="flex-1 justify-center">Add Schedule</Button>
-            </div>
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
 // ─── Main App ─────────────────────────────────────────────────────────────
 export default function App() {
   const [authScreen, setAuthScreen] = useState<"login" | "register" | null>("login");
@@ -2132,12 +1862,9 @@ export default function App() {
   const [loggedInName, setLoggedInName] = useState("");
   const [page, setPage] = useState("dashboard");
   const [globalSearch, setGlobalSearch] = useState("");
-
-  // 1. Tambahkan state baru untuk menyimpan ID user yang sedang aktif
   const [loggedInId, setLoggedInId] = useState<number | null>(null);
   const [activeLessons, setActiveLessons] = useState<Les[]>([]);
 
-  // Ambil data les dari database setiap kali loggedInId berubah (setelah login atau booking baru)
   useEffect(() => {
     if (loggedInId) {
       fetch(`http://localhost:8080/api/les/siswa?id_siswa=${loggedInId}`)
@@ -2145,13 +1872,12 @@ export default function App() {
         .then((data) => setActiveLessons(data))
         .catch((err) => console.error("Gagal mengambil data les:", err));
     }
-  }, [loggedInId, page]); // Triger ulang setiap kali pindah halaman
+  }, [loggedInId, page]);
 
-  // 2. Update fungsi handleLogin
   function handleLogin(role: Role, nama: string, id: number) {
     setLoggedInRole(role);
     setLoggedInName(nama);
-    setLoggedInId(id); // <--- SIMPAN ID SISWA DI SINI
+    setLoggedInId(id);
     setAuthScreen(null);
     setPage("dashboard");
   }
@@ -2172,7 +1898,6 @@ export default function App() {
 
   function renderPage() {
     if (loggedInRole === "student") {
-      // Tambahkan props setActiveLessons={setActiveLessons} di sini
       if (page === "book") return <BookLesson loggedInId={loggedInId} setActiveLessons={setActiveLessons} />;
       if (page === "mylessons") return <MyLessons loggedInId={loggedInId} activeLessons={activeLessons} />;
       return <StudentDashboard setPage={setPage} loggedInName={loggedInName} loggedInId={loggedInId} activeLessons={activeLessons} />;
