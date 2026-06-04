@@ -42,7 +42,7 @@ public class BackendServer {
     // ---------------------------------------------------------
     // HANDLER 1: REGISTRASI AKUN (SISWA, GURU, ADMIN)
     // ---------------------------------------------------------
-static class RegisterHandler implements HttpHandler {
+    static class RegisterHandler implements HttpHandler {
         @Override
         public void handle(HttpExchange exchange) throws IOException {
             aturCORS(exchange);
@@ -71,9 +71,11 @@ static class RegisterHandler implements HttpHandler {
                             String idJenjangStr = ambilNilaiJSON(jsonInput, "id_jenjang");
                             int idJenjang = idJenjangStr.isEmpty() ? 1 : Integer.parseInt(idJenjangStr);
                             String tglLahir = ambilNilaiJSON(jsonInput, "tanggal_lahir");
-                            if (tglLahir.isEmpty()) tglLahir = "2000-01-01";
+                            if (tglLahir.isEmpty())
+                                tglLahir = "2000-01-01";
                             String jenisKelamin = ambilNilaiJSON(jsonInput, "jenis_kelamin");
-                            if (jenisKelamin.isEmpty()) jenisKelamin = "L";
+                            if (jenisKelamin.isEmpty())
+                                jenisKelamin = "L";
 
                             sql = "INSERT INTO Siswa (id_siswa, id_jenjang, nama, tgl_lahir, jenis_kelamin, no_hp, email, password) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
                             pstmt = conn.prepareStatement(sql);
@@ -101,10 +103,10 @@ static class RegisterHandler implements HttpHandler {
                             pstmt.setString(6, noHp);
                             pstmt.setString(7, email);
                             pstmt.setString(8, password);
-                            
+
                             pstmt.executeUpdate();
                             pstmt.close();
-                            
+
                         } else if ("teacher".equals(role)) {
                             // 1. Simpan data utama Guru
                             sql = "INSERT INTO Guru (id_guru, nama, email, no_hp, password) VALUES (?, ?, ?, ?, ?)";
@@ -122,7 +124,7 @@ static class RegisterHandler implements HttpHandler {
                             if (!expertisesStr.isEmpty()) {
                                 String[] expArr = expertisesStr.split(",");
                                 String sqlKeahlian = "INSERT INTO Keahlian_Guru (id_keahlian, id_guru, id_mapel, id_jenjang) VALUES (?, ?, ?, ?)";
-                                
+
                                 try (PreparedStatement pstmtKeahlian = conn.prepareStatement(sqlKeahlian)) {
                                     int counter = 1;
                                     for (String exp : expArr) {
@@ -130,10 +132,11 @@ static class RegisterHandler implements HttpHandler {
                                         if (parts.length == 2) {
                                             int idMapel = Integer.parseInt(parts[0]);
                                             int idJenjang = Integer.parseInt(parts[1]);
-                                            
+
                                             // Tambahkan counter agar ID tidak bertabrakan saat looping super cepat
-                                            int idKeahlian = (int) (System.currentTimeMillis() % 100000) + (int) (Math.random() * 50000) + counter;
-                                            
+                                            int idKeahlian = (int) (System.currentTimeMillis() % 100000)
+                                                    + (int) (Math.random() * 50000) + counter;
+
                                             pstmtKeahlian.setInt(1, idKeahlian);
                                             pstmtKeahlian.setInt(2, newId);
                                             pstmtKeahlian.setInt(3, idMapel);
@@ -146,6 +149,7 @@ static class RegisterHandler implements HttpHandler {
                             }
 
                         } else if ("admin".equals(role)) {
+                            // 1. Simpan data ke tabel Admin (Seperti biasa)
                             sql = "INSERT INTO Admin (id_admin, nama, email, no_hp, password) VALUES (?, ?, ?, ?, ?)";
                             pstmt = conn.prepareStatement(sql);
                             pstmt.setInt(1, newId);
@@ -155,6 +159,19 @@ static class RegisterHandler implements HttpHandler {
                             pstmt.setString(5, password);
                             pstmt.executeUpdate();
                             pstmt.close();
+
+                            // 2. TAMBAHKAN KODE INI: Cek dan Update tabel Guru jika emailnya sama
+                            String sqlUpdateGuru = "UPDATE Guru SET id_admin = ? WHERE email = ?";
+                            try (PreparedStatement pstmtUpdateGuru = conn.prepareStatement(sqlUpdateGuru)) {
+                                pstmtUpdateGuru.setInt(1, newId); // newId ini adalah id_admin yang baru di-generate
+                                pstmtUpdateGuru.setString(2, email);
+
+                                int barisTerupdate = pstmtUpdateGuru.executeUpdate();
+                                if (barisTerupdate > 0) {
+                                    System.out.println(
+                                            "Sistem menemukan email yang sama di tabel Guru. id_admin di tabel Guru berhasil di-update!");
+                                }
+                            }
                         } else {
                             throw new Exception("Role tidak dikenali: " + role);
                         }
