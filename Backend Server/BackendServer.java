@@ -320,7 +320,7 @@ public class BackendServer {
                         }
 
                         // 2. JIKA AMAN, INSERT KE TABEL INDUK: Daftar_les
-                        String sqlInsertLes = "INSERT INTO Daftar_les (id_les, tgl_mulai, tgl_selesai, id_siswa) VALUES (?, ?, ?, ?)";
+                        String sqlInsertLes = "INSERT INTO Les (id_les, tgl_mulai, tgl_selesai, id_siswa) VALUES (?, ?, ?, ?)";
                         try (PreparedStatement pstmtLes = conn.prepareStatement(sqlInsertLes)) {
                             pstmtLes.setInt(1, newIdLes);
                             pstmtLes.setTimestamp(2, java.sql.Timestamp.valueOf(tglMulaiStr));
@@ -345,6 +345,7 @@ public class BackendServer {
                             }
                         }
 
+                        // Ganti id_jadwal menjadi idjadwal
                         String sqlInsertDetail = "INSERT INTO Detail_Daftar_Les (id_detail, id_les, id_jadwal, id_mapel, id_jenjang) VALUES (?, ?, ?, ?, ?)";
                         try (PreparedStatement pstmtDetail = conn.prepareStatement(sqlInsertDetail)) {
                             pstmtDetail.setInt(1, newIdDetail);
@@ -391,9 +392,12 @@ public class BackendServer {
 
                     String jsonResult = "[";
                     // GANTI MENJADI SEPERTI INI (Tambahkan l.durasi):
-                    String sql = "SELECT l.id_les, l.id_siswa, l.id_jadwal, l.tanggal_mulai, l.tanggal_selesai, l.durasi "
+                    // Ganti ddl.id_jadwal menjadi ddl.idjadwal AS id_jadwal
+                    String sql = "SELECT dl.id_les, dl.id_siswa, dl.tgl_mulai, dl.tgl_selesai, ddl.idjadwal AS id_jadwal "
                             +
-                            "FROM Les l WHERE l.id_siswa = ?";
+                            "FROM Les dl " +
+                            "JOIN Detail_Daftar_Les ddl ON dl.id_les = ddl.id_les " +
+                            "WHERE dl.id_siswa = ?";
 
                     try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD);
                             PreparedStatement pstmt = conn.prepareStatement(sql)) {
