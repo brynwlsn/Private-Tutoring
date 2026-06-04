@@ -42,7 +42,7 @@ public class BackendServer {
     // ---------------------------------------------------------
     // HANDLER 1: REGISTRASI AKUN (SISWA, GURU, ADMIN)
     // ---------------------------------------------------------
-    static class RegisterHandler implements HttpHandler {
+static class RegisterHandler implements HttpHandler {
         @Override
         public void handle(HttpExchange exchange) throws IOException {
             aturCORS(exchange);
@@ -61,24 +61,19 @@ public class BackendServer {
                     String noHp = ambilNilaiJSON(jsonInput, "no_hp");
                     String password = ambilNilaiJSON(jsonInput, "password");
 
-                    // Generate ID acak sederhana
                     int newId = (int) (System.currentTimeMillis() % 100000);
 
                     try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD)) {
                         String sql = "";
                         PreparedStatement pstmt = null;
 
-                        // perbaikan if student
                         if ("student".equals(role)) {
-                            // Registrasi Siswa
                             String idJenjangStr = ambilNilaiJSON(jsonInput, "id_jenjang");
                             int idJenjang = idJenjangStr.isEmpty() ? 1 : Integer.parseInt(idJenjangStr);
-                            String tglLahir = ambilNilaiJSON(jsonInput, "tgl_lahir");
-                            if (tglLahir.isEmpty())
-                                tglLahir = "2000-01-01";
+                            String tglLahir = ambilNilaiJSON(jsonInput, "tanggal_lahir");
+                            if (tglLahir.isEmpty()) tglLahir = "2000-01-01";
                             String jenisKelamin = ambilNilaiJSON(jsonInput, "jenis_kelamin");
-                            if (jenisKelamin.isEmpty())
-                                jenisKelamin = "L";
+                            if (jenisKelamin.isEmpty()) jenisKelamin = "L";
 
                             sql = "INSERT INTO Siswa (id_siswa, id_jenjang, nama, tgl_lahir, jenis_kelamin, no_hp, email, password) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
                             pstmt = conn.prepareStatement(sql);
@@ -86,34 +81,32 @@ public class BackendServer {
                             pstmt.setInt(2, idJenjang);
                             pstmt.setString(3, nama);
 
-                            // --- LOGIKA PARSING TANGGAL YANG TAHAN BANTING ---
                             java.sql.Date sqlDate = null;
                             try {
                                 if (tglLahir.contains("-")) {
-                                    // Jika format yang masuk adalah YYYY-MM-DD
                                     sqlDate = java.sql.Date.valueOf(tglLahir);
                                 } else if (tglLahir.contains("/")) {
-                                    // Jika format yang masuk adalah DD/MM/YYYY (seperti di browser kamu)
                                     String[] parts = tglLahir.split("/");
                                     if (parts[2].length() == 4) {
-                                        // Mengubah DD/MM/YYYY menjadi YYYY-MM-DD
                                         String formattedDate = parts[2] + "-" + parts[1] + "-" + parts[0];
                                         sqlDate = java.sql.Date.valueOf(formattedDate);
                                     }
                                 }
                             } catch (Exception dateEx) {
-                                // Jika semua gagal, gunakan tanggal default agar database tidak crash
                                 sqlDate = java.sql.Date.valueOf("2000-01-01");
                             }
 
-                            // Pasang objek sqlDate yang sudah aman ke prepared statement
                             pstmt.setDate(4, sqlDate);
                             pstmt.setString(5, jenisKelamin);
                             pstmt.setString(6, noHp);
                             pstmt.setString(7, email);
                             pstmt.setString(8, password);
+                            
+                            pstmt.executeUpdate();
+                            pstmt.close();
+                            
                         } else if ("teacher".equals(role)) {
-                            // Registrasi Guru
+                            // 1. Simpan data utama Guru
                             sql = "INSERT INTO Guru (id_guru, nama, email, no_hp, password) VALUES (?, ?, ?, ?, ?)";
                             pstmt = conn.prepareStatement(sql);
                             pstmt.setInt(1, newId);
@@ -121,9 +114,38 @@ public class BackendServer {
                             pstmt.setString(3, email);
                             pstmt.setString(4, noHp);
                             pstmt.setString(5, password);
+                            pstmt.executeUpdate();
+                            pstmt.close();
+
+                            // 2. Simpan Multi-Keahlian Guru (Hasil gabungan dari React)
+                            String expertisesStr = ambilNilaiJSON(jsonInput, "expertises");
+                            if (!expertisesStr.isEmpty()) {
+                                String[] expArr = expertisesStr.split(",");
+                                String sqlKeahlian = "INSERT INTO Keahlian_Guru (id_keahlian, id_guru, id_mapel, id_jenjang) VALUES (?, ?, ?, ?)";
+                                
+                                try (PreparedStatement pstmtKeahlian = conn.prepareStatement(sqlKeahlian)) {
+                                    int counter = 1;
+                                    for (String exp : expArr) {
+                                        String[] parts = exp.split("-");
+                                        if (parts.length == 2) {
+                                            int idMapel = Integer.parseInt(parts[0]);
+                                            int idJenjang = Integer.parseInt(parts[1]);
+                                            
+                                            // Tambahkan counter agar ID tidak bertabrakan saat looping super cepat
+                                            int idKeahlian = (int) (System.currentTimeMillis() % 100000) + (int) (Math.random() * 50000) + counter;
+                                            
+                                            pstmtKeahlian.setInt(1, idKeahlian);
+                                            pstmtKeahlian.setInt(2, newId);
+                                            pstmtKeahlian.setInt(3, idMapel);
+                                            pstmtKeahlian.setInt(4, idJenjang);
+                                            pstmtKeahlian.executeUpdate();
+                                            counter++;
+                                        }
+                                    }
+                                }
+                            }
 
                         } else if ("admin".equals(role)) {
-                            // Registrasi Admin
                             sql = "INSERT INTO Admin (id_admin, nama, email, no_hp, password) VALUES (?, ?, ?, ?, ?)";
                             pstmt = conn.prepareStatement(sql);
                             pstmt.setInt(1, newId);
@@ -131,12 +153,12 @@ public class BackendServer {
                             pstmt.setString(3, email);
                             pstmt.setString(4, noHp);
                             pstmt.setString(5, password);
+                            pstmt.executeUpdate();
+                            pstmt.close();
                         } else {
                             throw new Exception("Role tidak dikenali: " + role);
                         }
 
-                        pstmt.executeUpdate();
-                        pstmt.close();
                         System.out.println("Berhasil registrasi: " + nama + " sebagai " + role);
                     }
 
