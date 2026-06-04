@@ -296,8 +296,38 @@ public class BackendServer {
                     int idSiswa = Integer.parseInt(ambilNilaiJSON(jsonInput, "id_siswa"));
                     int idJadwal = Integer.parseInt(ambilNilaiJSON(jsonInput, "id_jadwal"));
 
-                    String tglMulaiStr = ambilNilaiJSON(jsonInput, "tanggal_mulai").replace("T", " ") + ":00";
-                    String tglSelesaiStr = ambilNilaiJSON(jsonInput, "tanggal_selesai").replace("T", " ") + ":00";
+                    // --- POTONG DAN TIMPA KODE PARSING TANGGAL DI SINI ---
+                    String tglMulaiRaw = ambilNilaiJSON(jsonInput, "tanggal_mulai");
+                    String tglSelesaiRaw = ambilNilaiJSON(jsonInput, "tanggal_selesai");
+
+                    java.sql.Timestamp tsMulai = null;
+                    java.sql.Timestamp tsSelesai = null;
+
+                    try {
+                        // Jika formatnya YYYY-MM-DDTHH:MM (Format standar HTML datetime-local)
+                        String tglMulaiStr = tglMulaiRaw.replace("T", " ")
+                                + (tglMulaiRaw.contains(":") ? ":00" : " 00:00:00");
+                        String tglSelesaiStr = tglSelesaiRaw.replace("T", " ")
+                                + (tglSelesaiRaw.contains(":") ? ":00" : " 00:00:00");
+
+                        // Jika ternyata format yang dikirim browser Anda adalah DD/MM/YYYY
+                        if (tglMulaiRaw.contains("/")) {
+                            String[] partsM = tglMulaiRaw.split("/");
+                            String[] partsS = tglSelesaiRaw.split("/");
+                            tglMulaiStr = partsM[2].trim() + "-" + partsM[1].trim() + "-" + partsM[0].trim()
+                                    + " 00:00:00";
+                            tglSelesaiStr = partsS[2].trim() + "-" + partsS[1].trim() + "-" + partsS[0].trim()
+                                    + " 23:59:59";
+                        }
+
+                        tsMulai = java.sql.Timestamp.valueOf(tglMulaiStr);
+                        tsSelesai = java.sql.Timestamp.valueOf(tglSelesaiStr);
+                    } catch (Exception dateEx) {
+                        // Jalur aman (fallback) agar server tidak crash jika format tidak dikenali
+                        tsMulai = new java.sql.Timestamp(System.currentTimeMillis());
+                        tsSelesai = new java.sql.Timestamp(System.currentTimeMillis() + 3600000);
+                    }
+                    // -----------------------------------------------------------------
 
                     int newIdLes = (int) (System.currentTimeMillis() % 100000) + (int) (Math.random() * 50000);
                     int newIdDetail = (int) (System.currentTimeMillis() % 100000) + (int) (Math.random() * 50000);
@@ -311,6 +341,12 @@ public class BackendServer {
                             ResultSet rsJadwal = pstmtCek.executeQuery();
                             if (rsJadwal.next()) {
                                 String statusJadwal = rsJadwal.getString("status");
+
+                                // --- TAMBAHKAN BARIS INI SEBAGAI CCTV ---
+                                System.out.println("CCTV: React mengirim id_jadwal = " + idJadwal
+                                        + ". Status di Database saat ini = '" + statusJadwal + "'");
+                                // ----------------------------------------
+
                                 if ("terisi".equalsIgnoreCase(statusJadwal)) {
                                     kirimResponJSON(exchange, 400,
                                             "{\"status\":\"gagal\", \"pesan\":\"Slot jadwal ini baru saja diambil siswa lain!\"}");
@@ -321,10 +357,11 @@ public class BackendServer {
 
                         // 2. JIKA AMAN, INSERT KE TABEL INDUK: Daftar_les
                         String sqlInsertLes = "INSERT INTO Les (id_les, tgl_mulai, tgl_selesai, id_siswa) VALUES (?, ?, ?, ?)";
+                        // Cari bagian ini dan sesuaikan variabelnya:
                         try (PreparedStatement pstmtLes = conn.prepareStatement(sqlInsertLes)) {
                             pstmtLes.setInt(1, newIdLes);
-                            pstmtLes.setTimestamp(2, java.sql.Timestamp.valueOf(tglMulaiStr));
-                            pstmtLes.setTimestamp(3, java.sql.Timestamp.valueOf(tglSelesaiStr));
+                            pstmtLes.setTimestamp(2, tsMulai); // <--- Ganti jadi tsMulai
+                            pstmtLes.setTimestamp(3, tsSelesai); // <--- Ganti jadi tsSelesai
                             pstmtLes.setInt(4, idSiswa);
                             pstmtLes.executeUpdate();
                         }
@@ -393,11 +430,14 @@ public class BackendServer {
                     String jsonResult = "[";
                     // GANTI MENJADI SEPERTI INI (Tambahkan l.durasi):
                     // Ganti ddl.id_jadwal menjadi ddl.idjadwal AS id_jadwal
-                    String sql = "SELECT dl.id_les, dl.id_siswa, dl.tgl_mulai, dl.tgl_selesai, ddl.id_jadwal"
-                            +
-                            "FROM Les dl " +
-                            "JOIN Detail_Daftar_Les ddl ON dl.id_les = ddl.id_les " +
-                            "WHERE dl.id_siswa = ?";
+                    // 1. Perbaiki Query SQL (Tambahkan dl.durasi agar tidak error di baris
+                    // bawahnya)
+                    // Menghitung selisih bulan antara tgl_mulai dan tgl_selesai
+                    String sql = "SELECT dl.id_les, dl.id_siswa, dl.tgl_mulai, dl.tgl_selesai, ddl.id_jadwal, "
+                            + "DATEDIFF(month, dl.tgl_mulai, dl.tgl_selesai) AS durasi " // <--- Cukup ganti ke month
+                            + "FROM Les dl "
+                            + "JOIN Detail_Daftar_Les ddl ON dl.id_les = ddl.id_les "
+                            + "WHERE dl.id_siswa = ?";
 
                     try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD);
                             PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -407,15 +447,15 @@ public class BackendServer {
                         while (rs.next()) {
                             if (!first)
                                 jsonResult += ",";
-                            // Di dalam GetStudentLessonsHandler bagian rs.next() update string JSON-nya:
+
+                            // 2. Sesuaikan nama di dalam rs.getString() menjadi tgl_mulai dan tgl_selesai
                             jsonResult += "{" +
                                     "\"id\":" + rs.getInt("id_les") + "," +
                                     "\"id_siswa\":" + rs.getInt("id_siswa") + "," +
                                     "\"id_jadwal\":" + rs.getInt("id_jadwal") + "," +
-                                    "\"tanggal_mulai\":\"" + rs.getString("tanggal_mulai").replace(" ", "T") + "\"," +
-                                    "\"tanggal_selesai\":\"" + rs.getString("tanggal_selesai").replace(" ", "T") + "\","
-                                    +
-                                    "\"durasi\":" + rs.getInt("durasi") + // <--- TAMBAHKAN INI
+                                    "\"tanggal_mulai\":\"" + rs.getString("tgl_mulai").replace(" ", "T") + "\"," +
+                                    "\"tanggal_selesai\":\"" + rs.getString("tgl_selesai").replace(" ", "T") + "\"," +
+                                    "\"durasi\":" + rs.getInt("durasi") +
                                     "}";
                             first = false;
                         }
