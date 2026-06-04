@@ -20,6 +20,7 @@ CREATE TABLE Admin (
     id_admin INT PRIMARY KEY,
     nama VARCHAR(100) NOT NULL,
     email VARCHAR(100),
+    no_hp VARCHAR(20),
     password VARCHAR(100)
 );
 
