@@ -1,10 +1,26 @@
 -- =========================================
+-- DROP TABLE IF EXIST
+-- =========================================
+DROP TABLE if exists Les;
+DROP TABLE if exists Siswa ;
+DROP TABLE if exists Guru
+DROP TABLE if exists Jadwal_Kesediaan_Guru
+DROP TABLE if exists Keahlian_Guru
+DROP TABLE if exists Detail_Daftar_Les
+DROP TABLE if exists Jenjang
+DROP TABLE if exists Mata_pelajaran
+DROP TABLE if exists Admin
+
+
+
+-- =========================================
 -- 1. Tabel Admin
 -- =========================================
 CREATE TABLE Admin (
     id_admin INT PRIMARY KEY,
     nama VARCHAR(100) NOT NULL,
-    email VARCHAR(100)
+    email VARCHAR(100),
+    password VARCHAR(100)
 );
 
 -- =========================================
@@ -16,7 +32,7 @@ CREATE TABLE Mata_pelajaran (
 );
 
 -- =========================================
--- 3. Tabel Mata_pelajaran
+-- 3. Tabel Jenjang
 -- =========================================
 CREATE TABLE Jenjang (
     id_jenjang INT PRIMARY KEY,
@@ -31,6 +47,7 @@ CREATE TABLE Guru (
     nama VARCHAR(100) NOT NULL,
     email VARCHAR(100),
     no_hp VARCHAR(20),
+    password VARCHAR(100),
     id_admin INT,
     FOREIGN KEY (id_admin) REFERENCES Admin(id_admin)
 );
@@ -45,6 +62,7 @@ CREATE TABLE Siswa (
     no_hp VARCHAR(20),
     tgl_lahir DATE,
     jenis_kelamin VARCHAR(15),
+    password VARCHAR(100),
     id_jenjang INT,
     FOREIGN KEY (id_jenjang) REFERENCES Jenjang(id_jenjang)
 );

@@ -13,12 +13,18 @@ import java.sql.ResultSet;
 import java.util.stream.Collectors;
 
 public class BackendServer {
+    // "jdbc:sqlserver://localhost\\SQLEXPRESS:1433;" +
+    // "databaseName=MIBDLesPrivat;" +"encrypt=true;"
+    // +"trustServerCertificate=true;";
+    // String user = "sa";
+    // String password = "passwordSQLAnda";
 
-    // Kredensial Azure SQL Server
-    private static final String URL = "jdbc:sqlserver://mibdlesprivat.database.windows.net:1433;database=MIBDLesPrivat;user=guguk@mibdlesprivat;password=AIPastiWIN69;encrypt=true;trustServerCertificate=false;hostNameInCertificate=*.database.windows.net;loginTimeout=30;";
-    private static final String USER = "guguk";
-    private static final String PASSWORD = "AIPastiWIN69";
-    
+    // Connect Database
+    private static final String URL = "jdbc:sqlserver://localhost\\SQLEXPRESS:1433;" + "databaseName=LesPrivat;"
+            + "encrypt=true;" + "trustServerCertificate=true;";
+    private static final String USER = "sa";
+    private static final String PASSWORD = "passwordSQLAnda";
+
     public static void main(String[] args) throws IOException {
         // Menyalakan server Back-End di port 8080
         HttpServer server = HttpServer.create(new InetSocketAddress(8080), 0);
@@ -53,7 +59,7 @@ public class BackendServer {
                     String nama = ambilNilaiJSON(jsonInput, "nama");
                     String email = ambilNilaiJSON(jsonInput, "email");
                     String noHp = ambilNilaiJSON(jsonInput, "no_hp");
-                    String pswrd = ambilNilaiJSON(jsonInput, "password");
+                    String password = ambilNilaiJSON(jsonInput, "password");
 
                     // Generate ID acak sederhana
                     int newId = (int) (System.currentTimeMillis() % 100000);
@@ -62,48 +68,71 @@ public class BackendServer {
                         String sql = "";
                         PreparedStatement pstmt = null;
 
+                        // perbaikan if student
                         if ("student".equals(role)) {
                             // Registrasi Siswa
                             String idJenjangStr = ambilNilaiJSON(jsonInput, "id_jenjang");
                             int idJenjang = idJenjangStr.isEmpty() ? 1 : Integer.parseInt(idJenjangStr);
-                            String tglLahir = ambilNilaiJSON(jsonInput, "tanggal_lahir");
+                            String tglLahir = ambilNilaiJSON(jsonInput, "tgl_lahir");
                             if (tglLahir.isEmpty())
                                 tglLahir = "2000-01-01";
                             String jenisKelamin = ambilNilaiJSON(jsonInput, "jenis_kelamin");
                             if (jenisKelamin.isEmpty())
                                 jenisKelamin = "L";
 
-                            sql = "INSERT INTO Siswa (id_siswa, id_jenjang, nama, tanggal_lahir, jenis_kelamin, no_hp, email, pswrd, alamat) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                            sql = "INSERT INTO Siswa (id_siswa, id_jenjang, nama, tgl_lahir, jenis_kelamin, no_hp, email, password, alamat) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
                             pstmt = conn.prepareStatement(sql);
                             pstmt.setInt(1, newId);
                             pstmt.setInt(2, idJenjang);
                             pstmt.setString(3, nama);
-                            pstmt.setTimestamp(4, java.sql.Timestamp.valueOf(tglLahir + " 00:00:00"));
+
+                            // --- LOGIKA PARSING TANGGAL YANG TAHAN BANTING ---
+                            java.sql.Date sqlDate = null;
+                            try {
+                                if (tglLahir.contains("-")) {
+                                    // Jika format yang masuk adalah YYYY-MM-DD
+                                    sqlDate = java.sql.Date.valueOf(tglLahir);
+                                } else if (tglLahir.contains("/")) {
+                                    // Jika format yang masuk adalah DD/MM/YYYY (seperti di browser kamu)
+                                    String[] parts = tglLahir.split("/");
+                                    if (parts[2].length() == 4) {
+                                        // Mengubah DD/MM/YYYY menjadi YYYY-MM-DD
+                                        String formattedDate = parts[2] + "-" + parts[1] + "-" + parts[0];
+                                        sqlDate = java.sql.Date.valueOf(formattedDate);
+                                    }
+                                }
+                            } catch (Exception dateEx) {
+                                // Jika semua gagal, gunakan tanggal default agar database tidak crash
+                                sqlDate = java.sql.Date.valueOf("2000-01-01");
+                            }
+
+                            // Pasang objek sqlDate yang sudah aman ke prepared statement
+                            pstmt.setDate(4, sqlDate);
+
                             pstmt.setString(5, jenisKelamin);
                             pstmt.setString(6, noHp);
                             pstmt.setString(7, email);
-                            pstmt.setString(8, pswrd);
+                            pstmt.setString(8, password);
                             pstmt.setString(9, "Belum diisi");
-
                         } else if ("teacher".equals(role)) {
                             // Registrasi Guru
-                            sql = "INSERT INTO Guru (id_guru, nama, email, no_hp, pswrd) VALUES (?, ?, ?, ?, ?)";
+                            sql = "INSERT INTO Guru (id_guru, nama, email, no_hp, password) VALUES (?, ?, ?, ?, ?)";
                             pstmt = conn.prepareStatement(sql);
                             pstmt.setInt(1, newId);
                             pstmt.setString(2, nama);
                             pstmt.setString(3, email);
                             pstmt.setString(4, noHp);
-                            pstmt.setString(5, pswrd);
+                            pstmt.setString(5, password);
 
                         } else if ("admin".equals(role)) {
                             // Registrasi Admin
-                            sql = "INSERT INTO Admin (id_admin, nama, email, no_hp, pswrd) VALUES (?, ?, ?, ?, ?)";
+                            sql = "INSERT INTO Admin (id_admin, nama, email, no_hp, password) VALUES (?, ?, ?, ?, ?)";
                             pstmt = conn.prepareStatement(sql);
                             pstmt.setInt(1, newId);
                             pstmt.setString(2, nama);
                             pstmt.setString(3, email);
                             pstmt.setString(4, noHp);
-                            pstmt.setString(5, pswrd);
+                            pstmt.setString(5, password);
                         } else {
                             throw new Exception("Role tidak dikenali: " + role);
                         }
@@ -149,7 +178,7 @@ public class BackendServer {
                     try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD)) {
 
                         // 1. Cek di tabel Siswa
-                        String sqlSiswa = "SELECT id_siswa, nama FROM Siswa WHERE email = ? AND pswrd = ?";
+                        String sqlSiswa = "SELECT id_siswa, nama FROM Siswa WHERE email = ? AND password = ?";
                         try (PreparedStatement pstmt = conn.prepareStatement(sqlSiswa)) {
                             pstmt.setString(1, email);
                             pstmt.setString(2, password);
@@ -163,7 +192,7 @@ public class BackendServer {
 
                         // 2. Jika bukan siswa, Cek di tabel Guru
                         if (roleDitemukan.isEmpty()) {
-                            String sqlGuru = "SELECT id_guru, nama FROM Guru WHERE email = ? AND pswrd = ?";
+                            String sqlGuru = "SELECT id_guru, nama FROM Guru WHERE email = ? AND password = ?";
                             try (PreparedStatement pstmt = conn.prepareStatement(sqlGuru)) {
                                 pstmt.setString(1, email);
                                 pstmt.setString(2, password);
@@ -178,7 +207,7 @@ public class BackendServer {
 
                         // 3. Jika bukan guru, Cek di tabel Admin
                         if (roleDitemukan.isEmpty()) {
-                            String sqlAdmin = "SELECT id_admin, nama FROM Admin WHERE email = ? AND pswrd = ?";
+                            String sqlAdmin = "SELECT id_admin, nama FROM Admin WHERE email = ? AND password = ?";
                             try (PreparedStatement pstmt = conn.prepareStatement(sqlAdmin)) {
                                 pstmt.setString(1, email);
                                 pstmt.setString(2, password);
@@ -229,55 +258,74 @@ public class BackendServer {
                 try {
                     int idSiswa = Integer.parseInt(ambilNilaiJSON(jsonInput, "id_siswa"));
                     int idJadwal = Integer.parseInt(ambilNilaiJSON(jsonInput, "id_jadwal"));
-                    int durasi = Integer.parseInt(ambilNilaiJSON(jsonInput, "durasi")); // <--- AMBIL DURASI DARI REACT
 
-                    // Format dari React: "2025-01-20T09:00" -> SQL butuh: "2025-01-20 09:00:00"
                     String tglMulaiStr = ambilNilaiJSON(jsonInput, "tanggal_mulai").replace("T", " ") + ":00";
                     String tglSelesaiStr = ambilNilaiJSON(jsonInput, "tanggal_selesai").replace("T", " ") + ":00";
 
                     int newIdLes = (int) (System.currentTimeMillis() % 100000) + (int) (Math.random() * 50000);
+                    int newIdDetail = (int) (System.currentTimeMillis() % 100000) + (int) (Math.random() * 50000);
 
-                    // Tambahkan kolom durasi ke dalam query INSERT
-                    String sql = "INSERT INTO Les (id_les, id_siswa, id_jadwal, tanggal_mulai, tanggal_selesai, durasi) VALUES (?, ?, ?, ?, ?, ?)";
-
-                    // Buka koneksi database satu kali untuk cek dan insert
                     try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD)) {
 
-                        // --- 1. CEK BENTROK DULU (NOMOR 3) ---
-                        String sqlCek = "SELECT COUNT(*) AS total_bentrok FROM Les " +
-                                "WHERE id_jadwal = ? AND " +
-                                "(tanggal_mulai < ? AND tanggal_selesai > ?)";
-
-                        try (PreparedStatement pstmtCek = conn.prepareStatement(sqlCek)) {
+                        // 1. CEK APAKAH SLOT DI JADWAL TERSEDIA
+                        String sqlCekJadwal = "SELECT status FROM Jadwal_Kesediaan_Guru WHERE id_jadwal = ?";
+                        try (PreparedStatement pstmtCek = conn.prepareStatement(sqlCekJadwal)) {
                             pstmtCek.setInt(1, idJadwal);
-                            pstmtCek.setTimestamp(2, java.sql.Timestamp.valueOf(tglSelesaiStr));
-                            pstmtCek.setTimestamp(3, java.sql.Timestamp.valueOf(tglMulaiStr));
-
-                            ResultSet rsCek = pstmtCek.executeQuery();
-                            if (rsCek.next() && rsCek.getInt("total_bentrok") > 0) {
-                                // JIKA BENTROK, TOLAK DAN LEMPAR ERROR
-                                kirimResponJSON(exchange, 400,
-                                        "{\"status\":\"gagal\", \"pesan\":\"Waktu tersebut sudah di-booking oleh siswa lain. Silakan pilih jam lain!\"}");
-                                return; // Hentikan eksekusi di sini, jangan lanjut ke INSERT
+                            ResultSet rsJadwal = pstmtCek.executeQuery();
+                            if (rsJadwal.next()) {
+                                String statusJadwal = rsJadwal.getString("status");
+                                if ("terisi".equalsIgnoreCase(statusJadwal)) {
+                                    kirimResponJSON(exchange, 400,
+                                            "{\"status\":\"gagal\", \"pesan\":\"Slot jadwal ini baru saja diambil siswa lain!\"}");
+                                    return;
+                                }
                             }
                         }
 
-                        // --- 2. JIKA AMAN, LANJUTKAN PROSES INSERT ---
-                        String sqlInsert = "INSERT INTO Les (id_les, id_siswa, id_jadwal, tanggal_mulai, tanggal_selesai, durasi) VALUES (?, ?, ?, ?, ?, ?)";
+                        // 2. JIKA AMAN, INSERT KE TABEL INDUK: Daftar_les
+                        String sqlInsertLes = "INSERT INTO Daftar_les (id_les, tgl_mulai, tgl_selesai, id_siswa) VALUES (?, ?, ?, ?)";
+                        try (PreparedStatement pstmtLes = conn.prepareStatement(sqlInsertLes)) {
+                            pstmtLes.setInt(1, newIdLes);
+                            pstmtLes.setTimestamp(2, java.sql.Timestamp.valueOf(tglMulaiStr));
+                            pstmtLes.setTimestamp(3, java.sql.Timestamp.valueOf(tglSelesaiStr));
+                            pstmtLes.setInt(4, idSiswa);
+                            pstmtLes.executeUpdate();
+                        }
 
-                        try (PreparedStatement pstmt = conn.prepareStatement(sqlInsert)) {
-                            pstmt.setInt(1, newIdLes);
-                            pstmt.setInt(2, idSiswa);
-                            pstmt.setInt(3, idJadwal);
-                            pstmt.setTimestamp(4, java.sql.Timestamp.valueOf(tglMulaiStr));
-                            pstmt.setTimestamp(5, java.sql.Timestamp.valueOf(tglSelesaiStr));
-                            pstmt.setInt(6, durasi);
+                        // 3. INSERT KE TABEL PENENGAH: Detail_Daftar_Les (Sesuaikan FK Mapel & Jenjang)
+                        // Mengambil id_mapel dan id_jenjang dari relasi keahlian jadwal tersebut secara
+                        // dinamis
+                        int idMapel = 1;
+                        int idJenjang = 1;
+                        String sqlGetMaster = "SELECT k.id_mapel, k.id_jenjang FROM Jadwal_Kesediaan_Guru j " +
+                                "JOIN Keahlian_Guru k ON j.id_guru = k.id_guru WHERE j.id_jadwal = ?";
+                        try (PreparedStatement pstmtMaster = conn.prepareStatement(sqlGetMaster)) {
+                            pstmtMaster.setInt(1, idJadwal);
+                            ResultSet rsM = pstmtMaster.executeQuery();
+                            if (rsM.next()) {
+                                idMapel = rsM.getInt("id_mapel");
+                                idJenjang = rsM.getInt("id_jenjang");
+                            }
+                        }
 
-                            pstmt.executeUpdate();
+                        String sqlInsertDetail = "INSERT INTO Detail_Daftar_Les (id_detail, id_les, id_jadwal, id_mapel, id_jenjang) VALUES (?, ?, ?, ?, ?)";
+                        try (PreparedStatement pstmtDetail = conn.prepareStatement(sqlInsertDetail)) {
+                            pstmtDetail.setInt(1, newIdDetail);
+                            pstmtDetail.setInt(2, newIdLes);
+                            pstmtDetail.setInt(3, idJadwal);
+                            pstmtDetail.setInt(4, idMapel);
+                            pstmtDetail.setInt(5, idJenjang);
+                            pstmtDetail.executeUpdate();
+                        }
+
+                        // 4. UPDATE STATUS SLOT DI TABEL JADWAL GURU MENJADI 'terisi'
+                        String sqlUpdateJadwal = "UPDATE Jadwal_Kesediaan_Guru SET status = 'terisi' WHERE id_jadwal = ?";
+                        try (PreparedStatement pstmtUpdate = conn.prepareStatement(sqlUpdateJadwal)) {
+                            pstmtUpdate.setInt(1, idJadwal);
+                            pstmtUpdate.executeUpdate();
                         }
                     }
-                    System.out.println("DEBUG: Sukses booking! Siswa: " + idSiswa + ", Jadwal: " + idJadwal
-                            + ", Durasi: " + durasi + " menit");
+
                     kirimResponJSON(exchange, 200, "{\"status\":\"sukses\"}");
 
                 } catch (Exception e) {
