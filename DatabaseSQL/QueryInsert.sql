@@ -14,5 +14,16 @@ VALUES
 (104, 2, 'Tuesday', '10:00:00', '11:00:00', 'tersedia', 1),
 (105, 3, 'Thursday', '08:00:00', '09:00:00', 'tersedia', 1);
 
-select *
-from guru
+INSERT INTO Jenjang (id_jenjang, nama_jenjang) VALUES 
+(1, 'SD'),
+(2, 'SMP'),
+(3, 'SMA');
+
+-- Memasukkan 5 data siswa dummy dengan variasi jenjang pendidikan
+INSERT INTO Siswa (id_siswa, id_jenjang, nama, tgl_lahir, jenis_kelamin, no_hp, email, password) 
+VALUES 
+(10001, 1, 'Budi Santoso', '2015-05-12', 'L', '081234567890', 'budi@email.com', 'passwordBudi'),
+(10002, 1, 'Siti Aminah', '2016-08-23', 'P', '081234567891', 'siti@email.com', 'passwordSiti'),
+(10003, 2, 'Andi Wijaya', '2012-02-10', 'L', '081234567892', 'andi@email.com', 'passwordAndi'),
+(10004, 2, 'Citra Lestari', '2011-11-30', 'P', '081234567893', 'citra@email.com', 'passwordCitra'),
+(10005, 3, 'Rian Hidayat', '2009-04-05', 'L', '081234567894', 'rian@email.com', 'passwordRian');

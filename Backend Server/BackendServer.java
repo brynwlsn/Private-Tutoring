@@ -393,7 +393,7 @@ public class BackendServer {
                     String jsonResult = "[";
                     // GANTI MENJADI SEPERTI INI (Tambahkan l.durasi):
                     // Ganti ddl.id_jadwal menjadi ddl.idjadwal AS id_jadwal
-                    String sql = "SELECT dl.id_les, dl.id_siswa, dl.tgl_mulai, dl.tgl_selesai, ddl.idjadwal AS id_jadwal "
+                    String sql = "SELECT dl.id_les, dl.id_siswa, dl.tgl_mulai, dl.tgl_selesai, ddl.id_jadwal"
                             +
                             "FROM Les dl " +
                             "JOIN Detail_Daftar_Les ddl ON dl.id_les = ddl.id_les " +
