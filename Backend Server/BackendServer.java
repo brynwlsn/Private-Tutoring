@@ -18,7 +18,7 @@ public class BackendServer {
     private static final String URL = "jdbc:sqlserver://mibdlesprivat.database.windows.net:1433;database=MIBDLesPrivat;user=guguk@mibdlesprivat;password=AIPastiWIN69;encrypt=true;trustServerCertificate=false;hostNameInCertificate=*.database.windows.net;loginTimeout=30;";
     private static final String USER = "guguk";
     private static final String PASSWORD = "AIPastiWIN69";
-
+    
     public static void main(String[] args) throws IOException {
         // Menyalakan server Back-End di port 8080
         HttpServer server = HttpServer.create(new InetSocketAddress(8080), 0);
