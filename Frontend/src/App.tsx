@@ -94,7 +94,6 @@ interface Les {
   tanggal_selesai: string;
   id_siswa: number;
   id_jadwal: number;
-  durasi: number;
   id_mapel: number;
   id_jenjang: number;
 }
@@ -275,7 +274,6 @@ const LES_DATA: Les[] = [
     id_jenjang: 3,
     tanggal_mulai: "2025-01-23T08:00",
     tanggal_selesai: "2025-01-23T09:00",
-    durasi: 60,
   },
 ];
 
@@ -610,11 +608,10 @@ function Sidebar({
           <button
             key={p}
             onClick={() => setPage(p)}
-            className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-all text-left ${
-              page === p
+            className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-all text-left ${page === p
                 ? "bg-white/10 text-white"
                 : "text-white/50 hover:text-white hover:bg-white/5"
-            }`}
+              }`}
           >
             <Icon size={16} className="flex-shrink-0" />
             {label}
@@ -773,13 +770,13 @@ function BookLesson({ loggedInId, setActiveLessons }: any) {
     return bookedIds;
   }, [selGurus, startDate, endDate, guruJadwal]);
 
- async function handleBook() {
+  async function handleBook() {
     if (selSlots.length === 0 || !startDate || !endDate) return;
 
     try {
       for (const slot of selSlots) {
         // HAPUS SCRIPT WHILE LOOP DI SINI
-        
+
         // Kita langsung gunakan startDate dan endDate dari input UI
         const payload = {
           id_siswa: loggedInId,
@@ -788,7 +785,6 @@ function BookLesson({ loggedInId, setActiveLessons }: any) {
           id_jenjang: Number(selJenjang),
           tanggal_mulai: `${startDate}T${slot.jam_mulai}`,   // Gunakan startDate
           tanggal_selesai: `${endDate}T${slot.jam_selesai}`, // Gunakan endDate
-          durasi: 60,
         };
 
         const response = await fetch("http://localhost:8080/api/les", {
@@ -809,7 +805,7 @@ function BookLesson({ loggedInId, setActiveLessons }: any) {
         msg: "Recurring lessons booked successfully!",
         type: "success",
       });
-      
+
       if (loggedInId) {
         fetch(`http://localhost:8080/api/les/siswa?id_siswa=${loggedInId}`)
           .then((res) => res.json())
@@ -833,9 +829,9 @@ function BookLesson({ loggedInId, setActiveLessons }: any) {
   const totalWeeks =
     startDate && endDate
       ? Math.ceil(
-          (new Date(endDate).getTime() - new Date(startDate).getTime()) /
-            (7 * 86400000),
-        )
+        (new Date(endDate).getTime() - new Date(startDate).getTime()) /
+        (7 * 86400000),
+      )
       : 0;
   const totalSessions = totalWeeks * selSlots.length;
 
@@ -1175,8 +1171,8 @@ function BookLesson({ loggedInId, setActiveLessons }: any) {
                   value={
                     selSlots.length > 0
                       ? selSlots
-                          .map((s) => `${s.hari} ${s.jam_mulai}`)
-                          .join(", ")
+                        .map((s) => `${s.hari} ${s.jam_mulai}`)
+                        .join(", ")
                       : "Not selected"
                   }
                 />
@@ -1234,7 +1230,6 @@ function MyLessons({ loggedInId, activeLessons }: any) {
                   "Teacher",
                   "Date",
                   "Time",
-                  "Duration",
                   "Status",
                 ].map((h) => (
                   <th
@@ -1260,7 +1255,6 @@ function MyLessons({ loggedInId, activeLessons }: any) {
                   const end = les.tanggal_selesai?.includes("T")
                     ? les.tanggal_selesai.split("T")[1].substring(0, 5)
                     : "00:00";
-                  const dur = les.durasi ? (les.durasi / 60).toFixed(1) : "0";
                   const status =
                     new Date(les.tanggal_mulai) < new Date()
                       ? "Completed"
@@ -1290,9 +1284,8 @@ function MyLessons({ loggedInId, activeLessons }: any) {
                           : "-"}
                       </td>
                       <td className="px-5 py-3.5 text-slate-600">
-                        {start} - {end}
+                        {les.jam_mulai?.substring(0, 5)} - {les.jam_selesai?.substring(0, 5)}
                       </td>
-                      <td className="px-5 py-3.5 text-slate-600">{dur} hrs</td>
                       <td className="px-5 py-3.5">
                         <Badge
                           label={status}

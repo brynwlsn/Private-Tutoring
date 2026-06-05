@@ -406,7 +406,6 @@ public class BackendServer {
                             pstmtDetail.executeUpdate();
                         }
 
-                        
                     }
 
                     kirimResponJSON(exchange, 200, "{\"status\":\"sukses\"}");
@@ -441,11 +440,13 @@ public class BackendServer {
                     // 1. Perbaiki Query SQL (Tambahkan dl.durasi agar tidak error di baris
                     // bawahnya)
                     // Menghitung selisih bulan antara tgl_mulai dan tgl_selesai
-                    String sql = "SELECT dl.id_les, dl.id_siswa, dl.tgl_mulai, dl.tgl_selesai, ddl.id_jadwal, "
-                            + "DATEDIFF(month, dl.tgl_mulai, dl.tgl_selesai) AS durasi " // <--- Cukup ganti ke month
-                            + "FROM Les dl "
-                            + "JOIN Detail_Daftar_Les ddl ON dl.id_les = ddl.id_les "
-                            + "WHERE dl.id_siswa = ?";
+                    String sql = "SELECT dl.id_les, dl.id_siswa, dl.tgl_mulai, dl.tgl_selesai, " +
+                            "ddl.id_jadwal, ddl.id_mapel, ddl.id_jenjang, " +
+                            "j.hari, j.jam_mulai, j.jam_selesai " +
+                            "FROM Les dl " +
+                            "JOIN Detail_Daftar_Les ddl ON dl.id_les = ddl.id_les " +
+                            "JOIN Jadwal_Kesediaan_Guru j ON ddl.id_jadwal = j.id_jadwal " +
+                            "WHERE dl.id_siswa = ?";
 
                     try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD);
                             PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -461,9 +462,13 @@ public class BackendServer {
                                     "\"id\":" + rs.getInt("id_les") + "," +
                                     "\"id_siswa\":" + rs.getInt("id_siswa") + "," +
                                     "\"id_jadwal\":" + rs.getInt("id_jadwal") + "," +
+                                    "\"id_mapel\":" + rs.getInt("id_mapel") + "," +
+                                    "\"id_jenjang\":" + rs.getInt("id_jenjang") + "," +
+                                    "\"hari\":\"" + rs.getString("hari") + "\"," +
+                                    "\"jam_mulai\":\"" + rs.getString("jam_mulai") + "\"," +
+                                    "\"jam_selesai\":\"" + rs.getString("jam_selesai") + "\"," +
                                     "\"tanggal_mulai\":\"" + rs.getString("tgl_mulai").replace(" ", "T") + "\"," +
-                                    "\"tanggal_selesai\":\"" + rs.getString("tgl_selesai").replace(" ", "T") + "\"," +
-                                    "\"durasi\":" + rs.getInt("durasi") +
+                                    "\"tanggal_selesai\":\"" + rs.getString("tgl_selesai").replace(" ", "T") + "\"" +
                                     "}";
                             first = false;
                         }
