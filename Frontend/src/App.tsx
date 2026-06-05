@@ -1313,8 +1313,8 @@ function MyLessons({ loggedInId, activeLessons }: any) {
 }
 
 // ─── Page: Teacher Availability ────────────────────────────────────────────
-function TeacherAvailability() {
-  const guruId = 1;
+function TeacherAvailability({loggedinId}: any) {
+  const guruId = loggedinId;
   const [availList, setAvailList] = useState<JadwalKesediaan[]>(
     JADWAL.filter((j) => j.id_guru === guruId),
   );
@@ -1452,8 +1452,8 @@ function TeacherAvailability() {
 }
 
 // ─── Page: Teacher Schedule (Calendar) ─────────────────────────────────────
-function TeacherSchedule() {
-  const guruId = 1;
+function TeacherSchedule({loggedInId}:any) {
+  const guruId = loggedInId;
   const [selLesson, setSelLesson] = useState<Les | null>(null);
 
   // FIX: filter jadwal langsung by id_guru, tidak pakai id_keahlian
@@ -2392,26 +2392,27 @@ function StudentDashboard({
   );
 }
 
-function TeacherDashboard() {
-  const guruId = 1;
-  const guru = GURU.find((g) => g.id === guruId)!;
+function TeacherDashboard({ loggedInId, loggedInName }: any) {
+  const guruId = loggedInId;
 
-  // FIX: filter jadwal langsung by id_guru, tidak pakai id_keahlian
-  const guruJadwalIds = JADWAL.filter((j) => j.id_guru === guruId).map(
-    (j) => j.id,
-  );
+  // --- TAMBAHKAN KEMBALI BARIS INI (YANG HILANG) ---
+  const guruJadwalIds = JADWAL.filter((j) => j.id_guru === guruId).map((j) => j.id);
+  // ------------------------------------------------
+
+  // Baris ini akan otomatis normal kembali dan tidak merah lagi
   const myLessons = LES_DATA.filter((l) => guruJadwalIds.includes(l.id_jadwal));
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-xl font-bold text-slate-800">
-          Welcome, {guru.nama}!
+          Welcome, {loggedInName}!
         </h1>
         <p className="text-sm text-slate-500 mt-0.5">
           Overview of your teaching schedule and students.
         </p>
       </div>
+      {/* ... sisa kode ke bawah biarkan sama ... */}
       <div className="grid grid-cols-4 gap-5">
         {[
           {
@@ -3306,9 +3307,10 @@ export default function App() {
       );
     }
     if (loggedInRole === "teacher") {
-      if (page === "availability") return <TeacherAvailability />;
-      if (page === "schedule") return <TeacherSchedule />;
-      return <TeacherDashboard />;
+      // Tambahkan pelemparan parameter loggedInId dan loggedInName di sini
+      if (page === "availability") return <TeacherAvailability loggedInId={loggedInId} />;
+      if (page === "schedule") return <TeacherSchedule loggedInId={loggedInId} />;
+      return <TeacherDashboard loggedInId={loggedInId} loggedInName={loggedInName} />;
     }
     if (page === "students") return <AdminStudents search={globalSearch} />;
     if (page === "teachers") return <AdminTeachers search={globalSearch} />;
