@@ -773,56 +773,34 @@ function BookLesson({ loggedInId, setActiveLessons }: any) {
     return bookedIds;
   }, [selGurus, startDate, endDate, guruJadwal]);
 
-  async function handleBook() {
+ async function handleBook() {
     if (selSlots.length === 0 || !startDate || !endDate) return;
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    const dayNames = [
-      "Sunday",
-      "Monday",
-      "Tuesday",
-      "Wednesday",
-      "Thursday",
-      "Friday",
-      "Saturday",
-    ];
 
     try {
       for (const slot of selSlots) {
-        const slotDayIdx = dayNames.indexOf(slot.hari);
-        let currentDate = new Date(start);
-        while (currentDate.getDay() !== slotDayIdx) {
-          currentDate.setDate(currentDate.getDate() + 1);
-        }
+        // HAPUS SCRIPT WHILE LOOP DI SINI
+        
+        // Kita langsung gunakan startDate dan endDate dari input UI
+        const payload = {
+          id_siswa: loggedInId,
+          id_jadwal: slot.id,
+          id_mapel: Number(selMapel),
+          id_jenjang: Number(selJenjang),
+          tanggal_mulai: `${startDate}T${slot.jam_mulai}`,   // Gunakan startDate
+          tanggal_selesai: `${endDate}T${slot.jam_selesai}`, // Gunakan endDate
+          durasi: 60,
+        };
 
-        while (currentDate <= end) {
-          const year = currentDate.getFullYear();
-          const month = String(currentDate.getMonth() + 1).padStart(2, "0");
-          const dateStr = String(currentDate.getDate()).padStart(2, "0");
-          const formattedDate = `${year}-${month}-${dateStr}`;
+        const response = await fetch("http://localhost:8080/api/les", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
 
-          const payload = {
-            id_siswa: loggedInId,
-            id_jadwal: slot.id,
-            id_mapel: Number(selMapel),
-            id_jenjang: Number(selJenjang),
-            tanggal_mulai: `${formattedDate}T${slot.jam_mulai}`,
-            tanggal_selesai: `${formattedDate}T${slot.jam_selesai}`,
-            durasi: 60,
-          };
-
-          const response = await fetch("http://localhost:8080/api/les", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-          });
-
-          const result = await response.json();
-          if (result.status !== "sukses") {
-            setToast({ msg: "Gagal booking: " + result.pesan, type: "error" });
-            return;
-          }
-          currentDate.setDate(currentDate.getDate() + 7);
+        const result = await response.json();
+        if (result.status !== "sukses") {
+          setToast({ msg: "Gagal booking: " + result.pesan, type: "error" });
+          return;
         }
       }
 
@@ -831,6 +809,7 @@ function BookLesson({ loggedInId, setActiveLessons }: any) {
         msg: "Recurring lessons booked successfully!",
         type: "success",
       });
+      
       if (loggedInId) {
         fetch(`http://localhost:8080/api/les/siswa?id_siswa=${loggedInId}`)
           .then((res) => res.json())

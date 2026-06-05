@@ -335,21 +335,34 @@ public class BackendServer {
                     try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD)) {
 
                         // 1. CEK APAKAH SLOT DI JADWAL TERSEDIA
-                        String sqlCekJadwal = "SELECT status FROM Jadwal_Kesediaan_Guru WHERE id_jadwal = ?";
+                        // 1. CEK BENTROK JADWAL BERDASARKAN TANGGAL SECARA DINAMIS
+                        String sqlCekJadwal = "SELECT COUNT(*) AS total_bentrok \r\n" +
+                                "FROM Les l \r\n" +
+                                "JOIN Detail_Daftar_Les ddl ON l.id_les = ddl.id_les \r\n" +
+                                "WHERE ddl.id_jadwal = ? \r\n" +
+                                "AND (l.tgl_mulai <= ? AND l.tgl_selesai >= ?)";
+
                         try (PreparedStatement pstmtCek = conn.prepareStatement(sqlCekJadwal)) {
+                            // Memasukkan 3 parameter yang dibutuhkan oleh query (?)
                             pstmtCek.setInt(1, idJadwal);
+                            pstmtCek.setTimestamp(2, tsSelesai); // Batas akhir pendaftaran baru
+                            pstmtCek.setTimestamp(3, tsMulai); // Batas awal pendaftaran baru
+
                             ResultSet rsJadwal = pstmtCek.executeQuery();
                             if (rsJadwal.next()) {
-                                String statusJadwal = rsJadwal.getString("status");
+                                // Ambil hasil hitungan bentrok (berupa angka)
+                                int totalBentrok = rsJadwal.getInt("total_bentrok");
 
-                                // --- TAMBAHKAN BARIS INI SEBAGAI CCTV ---
-                                System.out.println("CCTV: React mengirim id_jadwal = " + idJadwal
-                                        + ". Status di Database saat ini = '" + statusJadwal + "'");
-                                // ----------------------------------------
+                                // --- CCTV DATABASE BARU ---
+                                System.out.println("CCTV Database: id_jadwal = " + idJadwal
+                                        + " | Jumlah Bentrok Tanggal = " + totalBentrok);
+                                // --------------------------
 
-                                if ("terisi".equalsIgnoreCase(statusJadwal)) {
+                                // Jika ada bentrok (totalBentrok > 0), berarti slot sudah 'terisi' pada tanggal
+                                // itu
+                                if (totalBentrok > 0) {
                                     kirimResponJSON(exchange, 400,
-                                            "{\"status\":\"gagal\", \"pesan\":\"Slot jadwal ini baru saja diambil siswa lain!\"}");
+                                            "{\"status\":\"gagal\", \"pesan\":\"Slot jadwal ini sudah terisi pada rentang tanggal tersebut!\"}");
                                     return;
                                 }
                             }
@@ -394,11 +407,12 @@ public class BackendServer {
                         }
 
                         // 4. UPDATE STATUS SLOT DI TABEL JADWAL GURU MENJADI 'terisi'
+                        // 4. UPDATE STATUS SLOT DI TABEL JADWAL GURU MENJADI 'terisi'
                         String sqlUpdateJadwal = "UPDATE Jadwal_Kesediaan_Guru SET status = 'terisi' WHERE id_jadwal = ?";
                         try (PreparedStatement pstmtUpdate = conn.prepareStatement(sqlUpdateJadwal)) {
                             pstmtUpdate.setInt(1, idJadwal);
                             pstmtUpdate.executeUpdate();
-                        }
+                        }   
                     }
 
                     kirimResponJSON(exchange, 200, "{\"status\":\"sukses\"}");

@@ -12,7 +12,6 @@ DROP TABLE if exists Mata_pelajaran
 DROP TABLE if exists Admin
 
 
-
 -- =========================================
 -- 1. Tabel Admin
 -- =========================================
@@ -76,7 +75,6 @@ CREATE TABLE Jadwal_Kesediaan_Guru (
     hari VARCHAR(20) NOT NULL,
     jam_mulai TIME NOT NULL,
     jam_selesai TIME NOT NULL,
-    status VARCHAR(20) NOT NULL, -- Contoh isi: 'tersedia' atau 'terisi'
     id_guru INT,
     id_admin INT,
     FOREIGN KEY (id_guru) REFERENCES Guru(id_guru),
