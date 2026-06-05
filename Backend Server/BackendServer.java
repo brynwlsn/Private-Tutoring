@@ -406,13 +406,7 @@ public class BackendServer {
                             pstmtDetail.executeUpdate();
                         }
 
-                        // 4. UPDATE STATUS SLOT DI TABEL JADWAL GURU MENJADI 'terisi'
-                        // 4. UPDATE STATUS SLOT DI TABEL JADWAL GURU MENJADI 'terisi'
-                        String sqlUpdateJadwal = "UPDATE Jadwal_Kesediaan_Guru SET status = 'terisi' WHERE id_jadwal = ?";
-                        try (PreparedStatement pstmtUpdate = conn.prepareStatement(sqlUpdateJadwal)) {
-                            pstmtUpdate.setInt(1, idJadwal);
-                            pstmtUpdate.executeUpdate();
-                        }   
+                        
                     }
 
                     kirimResponJSON(exchange, 200, "{\"status\":\"sukses\"}");
