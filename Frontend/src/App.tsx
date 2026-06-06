@@ -613,8 +613,8 @@ function Sidebar({
             key={p}
             onClick={() => setPage(p)}
             className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-all text-left ${page === p
-                ? "bg-white/10 text-white"
-                : "text-white/50 hover:text-white hover:bg-white/5"
+              ? "bg-white/10 text-white"
+              : "text-white/50 hover:text-white hover:bg-white/5"
               }`}
           >
             <Icon size={16} className="flex-shrink-0" />
@@ -3222,15 +3222,30 @@ export default function App() {
   const [globalSearch, setGlobalSearch] = useState("");
   const [loggedInId, setLoggedInId] = useState<number | null>(null);
   const [activeLessons, setActiveLessons] = useState<Les[]>([]);
+  const [db, setDb] = useState({
+    guru: [] as Guru[],
+    siswa: [] as Siswa[],
+    mapel: [] as Mapel[],
+    jenjang: [] as Jenjang[],
+    keahlian: [] as KeahlianGuru[],
+    jadwal: [] as JadwalKesediaan[],
+    admins: [] as Admin[]
+  });
 
   useEffect(() => {
-    if (loggedInId) {
-      fetch(`http://localhost:8080/api/les/siswa?id_siswa=${loggedInId}`)
-        .then((res) => res.json())
-        .then((data) => setActiveLessons(data))
-        .catch((err) => console.error("Gagal mengambil data les:", err));
-    }
-  }, [loggedInId, page]);
+    Promise.all([
+      fetch("http://localhost:8080/api/guru").then(r => r.json()).catch(() => []),
+      fetch("http://localhost:8080/api/siswa").then(r => r.json()).catch(() => []),
+      fetch("http://localhost:8080/api/mapel").then(r => r.json()).catch(() => []),
+      fetch("http://localhost:8080/api/jenjang").then(r => r.json()).catch(() => []),
+      fetch("http://localhost:8080/api/keahlian").then(r => r.json()).catch(() => []),
+      fetch("http://localhost:8080/api/jadwal").then(r => r.json()).catch(() => []),
+      fetch("http://localhost:8080/api/admin").then(r => r.json()).catch(() => []),
+    ]).then(([guru, siswa, mapel, jenjang, keahlian, jadwal, admins]) => {
+      setDb({ guru, siswa, mapel, jenjang, keahlian, jadwal, admins });
+      console.log("Data berhasil dimuat ke db:", { guru, siswa, mapel, jenjang, keahlian, jadwal, admins });
+    });
+  }, []);
 
   function handleLogin(role: Role, nama: string, id: number) {
     setLoggedInRole(role);
