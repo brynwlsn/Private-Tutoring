@@ -304,26 +304,22 @@ public class BackendServer {
                     java.sql.Timestamp tsSelesai = null;
 
                     try {
-                        // Jika formatnya YYYY-MM-DDTHH:MM (Format standar HTML datetime-local)
-                        String tglMulaiStr = tglMulaiRaw.replace("T", " ")
-                                + (tglMulaiRaw.contains(":") ? ":00" : " 00:00:00");
-                        String tglSelesaiStr = tglSelesaiRaw.replace("T", " ")
-                                + (tglSelesaiRaw.contains(":") ? ":00" : " 00:00:00");
+                        // Cek dan format waktu mulai
+                        String tglMulaiStr = tglMulaiRaw.replace("T", " ");
+                        if (tglMulaiStr.split(":").length == 2) {
+                            tglMulaiStr += ":00";
+                        }
 
-                        // Jika ternyata format yang dikirim browser Anda adalah DD/MM/YYYY
-                        if (tglMulaiRaw.contains("/")) {
-                            String[] partsM = tglMulaiRaw.split("/");
-                            String[] partsS = tglSelesaiRaw.split("/");
-                            tglMulaiStr = partsM[2].trim() + "-" + partsM[1].trim() + "-" + partsM[0].trim()
-                                    + " 00:00:00";
-                            tglSelesaiStr = partsS[2].trim() + "-" + partsS[1].trim() + "-" + partsS[0].trim()
-                                    + " 23:59:59";
+                        // Cek dan format waktu selesai
+                        String tglSelesaiStr = tglSelesaiRaw.replace("T", " ");
+                        if (tglSelesaiStr.split(":").length == 2) {
+                            tglSelesaiStr += ":00";
                         }
 
                         tsMulai = java.sql.Timestamp.valueOf(tglMulaiStr);
                         tsSelesai = java.sql.Timestamp.valueOf(tglSelesaiStr);
                     } catch (Exception dateEx) {
-                        // Jalur aman (fallback) agar server tidak crash jika format tidak dikenali
+                        System.out.println("Gagal parsing tanggal: " + dateEx.getMessage());
                         tsMulai = new java.sql.Timestamp(System.currentTimeMillis());
                         tsSelesai = new java.sql.Timestamp(System.currentTimeMillis() + 3600000);
                     }
@@ -531,3 +527,4 @@ public class BackendServer {
         os.close();
     }
 }
+
