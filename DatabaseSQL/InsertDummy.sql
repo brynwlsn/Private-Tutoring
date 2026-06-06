@@ -36,3 +36,6 @@ INSERT INTO Jadwal_Kesediaan_Guru (id_jadwal, hari, jam_mulai, jam_selesai, id_g
 (103, 'Wednesday', '13:00:00', '14:00:00', 3, 2),
 (104, 'Thursday', '15:00:00', '16:00:00', 4, 2),
 (105, 'Friday', '09:00:00', '10:00:00', 5, 3);
+
+
+select * from Jadwal_Kesediaan_Guru
