@@ -613,13 +613,8 @@ function Sidebar({
             key={p}
             onClick={() => setPage(p)}
             className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-all text-left ${page === p
-<<<<<<< HEAD
                 ? "bg-white/10 text-white"
                 : "text-white/50 hover:text-white hover:bg-white/5"
-=======
-              ? "bg-white/10 text-white"
-              : "text-white/50 hover:text-white hover:bg-white/5"
->>>>>>> 3cb0869 (perbaikan my lesson)
               }`}
           >
             <Icon size={16} className="flex-shrink-0" />
@@ -784,30 +779,19 @@ function BookLesson({ loggedInId, setActiveLessons }: any) {
 
     try {
       for (const slot of selSlots) {
-<<<<<<< HEAD
-        // HAPUS SCRIPT WHILE LOOP DI SINI
-
-        // Kita langsung gunakan startDate dan endDate dari input UI
-=======
-        // Hitung durasi dalam menit berdasarkan slot yang dipilih
         const startMins = timeToMinutes(slot.jam_mulai);
         const endMins = timeToMinutes(slot.jam_selesai);
         const durasiMenit = endMins - startMins;
 
->>>>>>> 3cb0869 (perbaikan my lesson)
         const payload = {
           id_siswa: loggedInId,
           id_jadwal: slot.id,
           id_mapel: Number(selMapel),
           id_jenjang: Number(selJenjang),
-<<<<<<< HEAD
-          tanggal_mulai: `${startDate}T${slot.jam_mulai}`,   // Gunakan startDate
-          tanggal_selesai: `${endDate}T${slot.jam_selesai}`, // Gunakan endDate
-=======
+
           tanggal_mulai: `${startDate}T${slot.jam_mulai}`,
           tanggal_selesai: `${endDate}T${slot.jam_selesai}`,
           durasi: durasiMenit, // <-- Sekarang durasinya dikirim sesuai hitungan asli
->>>>>>> 3cb0869 (perbaikan my lesson)
         };
 
         const response = await fetch("http://localhost:8080/api/les", {
@@ -1235,6 +1219,7 @@ function SummaryRow({ icon, label, value }: any) {
 }
 
 // ─── Page: My Lessons (Student) ────────────────────────────────────────────
+// ─── Page: My Lessons (Student) ────────────────────────────────────────────
 function MyLessons({ loggedInId, activeLessons }: any) {
   const myLes = activeLessons;
 
@@ -1248,18 +1233,7 @@ function MyLessons({ loggedInId, activeLessons }: any) {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-100">
-<<<<<<< HEAD
-                {[
-                  "Subject",
-                  "Teacher",
-                  "Date",
-                  "Time",
-                  "Status",
-                ].map((h) => (
-=======
-                {/* Kolom Status sudah bersih, tinggal 5 kolom ini */}
                 {["Subject", "Teacher", "Date", "Time", "Duration"].map((h) => (
->>>>>>> 3cb0869 (perbaikan my lesson)
                   <th
                     key={h}
                     className="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider"
@@ -1276,19 +1250,7 @@ function MyLessons({ loggedInId, activeLessons }: any) {
                   const jadwal = JADWAL.find((j) => j.id === les.id_jadwal);
                   const guru = GURU.find((g) => g.id === jadwal?.id_guru);
 
-<<<<<<< HEAD
-                  const start = les.tanggal_mulai?.includes("T")
-                    ? les.tanggal_mulai.split("T")[1].substring(0, 5)
-                    : "00:00";
-                  const end = les.tanggal_selesai?.includes("T")
-                    ? les.tanggal_selesai.split("T")[1].substring(0, 5)
-                    : "00:00";
-                  const status =
-                    new Date(les.tanggal_mulai) < new Date()
-                      ? "Completed"
-                      : "Upcoming";
-=======
-                  // 1. Ambil Nama Hari (cukup ambil dari data jadwal)
+                  // 1. Ambil Nama Hari
                   const dayName = jadwal ? jadwal.hari : "-";
 
                   // 2. Format Jam
@@ -1299,7 +1261,6 @@ function MyLessons({ loggedInId, activeLessons }: any) {
                   const startMins = timeToMinutes(start);
                   const endMins = timeToMinutes(end);
                   const dur = startMins > 0 ? ((endMins - startMins) / 60).toFixed(1) : "0.0";
->>>>>>> 3cb0869 (perbaikan my lesson)
 
                   return (
                     <tr key={les.id} className="border-b border-slate-50 hover:bg-slate-50/80 transition-colors">
@@ -1310,31 +1271,9 @@ function MyLessons({ loggedInId, activeLessons }: any) {
                           <span className="text-slate-600">{guru?.nama || "-"}</span>
                         </div>
                       </td>
-<<<<<<< HEAD
-                      <td className="px-5 py-3.5 text-slate-600">
-                        {les.tanggal_mulai
-                          ? formatDate(les.tanggal_mulai)
-                          : "-"}
-                      </td>
-                      <td className="px-5 py-3.5 text-slate-600">
-                        {les.jam_mulai?.substring(0, 5)} - {les.jam_selesai?.substring(0, 5)}
-                      </td>
-                      <td className="px-5 py-3.5">
-                        <Badge
-                          label={status}
-                          variant={
-                            status === "Completed" ? "success" : "warning"
-                          }
-                        />
-                      </td>
-=======
-                      {/* Tampilan Hari saja */}
-                      <td className="px-5 py-3.5 text-slate-600 font-medium">
-                        {dayName}
-                      </td>
+                      <td className="px-5 py-3.5 text-slate-600 font-medium">{dayName}</td>
                       <td className="px-5 py-3.5 text-slate-600">{start} - {end}</td>
                       <td className="px-5 py-3.5 text-slate-600">{dur} hrs</td>
->>>>>>> 3cb0869 (perbaikan my lesson)
                     </tr>
                   );
                 })}
