@@ -96,6 +96,9 @@ interface Les {
   id_jadwal: number;
   id_mapel: number;
   id_jenjang: number;
+  // Tambahkan dua baris ini:
+  jam_mulai?: string;
+  jam_selesai?: string;
 }
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────
@@ -316,10 +319,11 @@ function initials(name: string) {
 }
 
 function formatDate(iso: string) {
-  return new Date(iso.split("T")[0]).toLocaleDateString("en-US", {
-    weekday: "short",
+  const date = new Date(iso);
+  return date.toLocaleDateString("id-ID", {
+    weekday: "long", // Menampilkan nama hari (contoh: Rabu)
     day: "numeric",
-    month: "short",
+    month: "long",
     year: "numeric",
   });
 }
@@ -609,8 +613,13 @@ function Sidebar({
             key={p}
             onClick={() => setPage(p)}
             className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-all text-left ${page === p
+<<<<<<< HEAD
                 ? "bg-white/10 text-white"
                 : "text-white/50 hover:text-white hover:bg-white/5"
+=======
+              ? "bg-white/10 text-white"
+              : "text-white/50 hover:text-white hover:bg-white/5"
+>>>>>>> 3cb0869 (perbaikan my lesson)
               }`}
           >
             <Icon size={16} className="flex-shrink-0" />
@@ -775,16 +784,30 @@ function BookLesson({ loggedInId, setActiveLessons }: any) {
 
     try {
       for (const slot of selSlots) {
+<<<<<<< HEAD
         // HAPUS SCRIPT WHILE LOOP DI SINI
 
         // Kita langsung gunakan startDate dan endDate dari input UI
+=======
+        // Hitung durasi dalam menit berdasarkan slot yang dipilih
+        const startMins = timeToMinutes(slot.jam_mulai);
+        const endMins = timeToMinutes(slot.jam_selesai);
+        const durasiMenit = endMins - startMins;
+
+>>>>>>> 3cb0869 (perbaikan my lesson)
         const payload = {
           id_siswa: loggedInId,
           id_jadwal: slot.id,
           id_mapel: Number(selMapel),
           id_jenjang: Number(selJenjang),
+<<<<<<< HEAD
           tanggal_mulai: `${startDate}T${slot.jam_mulai}`,   // Gunakan startDate
           tanggal_selesai: `${endDate}T${slot.jam_selesai}`, // Gunakan endDate
+=======
+          tanggal_mulai: `${startDate}T${slot.jam_mulai}`,
+          tanggal_selesai: `${endDate}T${slot.jam_selesai}`,
+          durasi: durasiMenit, // <-- Sekarang durasinya dikirim sesuai hitungan asli
+>>>>>>> 3cb0869 (perbaikan my lesson)
         };
 
         const response = await fetch("http://localhost:8080/api/les", {
@@ -1225,6 +1248,7 @@ function MyLessons({ loggedInId, activeLessons }: any) {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-100">
+<<<<<<< HEAD
                 {[
                   "Subject",
                   "Teacher",
@@ -1232,6 +1256,10 @@ function MyLessons({ loggedInId, activeLessons }: any) {
                   "Time",
                   "Status",
                 ].map((h) => (
+=======
+                {/* Kolom Status sudah bersih, tinggal 5 kolom ini */}
+                {["Subject", "Teacher", "Date", "Time", "Duration"].map((h) => (
+>>>>>>> 3cb0869 (perbaikan my lesson)
                   <th
                     key={h}
                     className="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider"
@@ -1245,10 +1273,10 @@ function MyLessons({ loggedInId, activeLessons }: any) {
               {Array.isArray(myLes) &&
                 myLes.map((les: any) => {
                   const mapel = MAPEL.find((m) => m.id === les.id_mapel);
-                  // FIX: guru diambil dari jadwal.id_guru langsung (bukan lewat keahlian)
                   const jadwal = JADWAL.find((j) => j.id === les.id_jadwal);
                   const guru = GURU.find((g) => g.id === jadwal?.id_guru);
 
+<<<<<<< HEAD
                   const start = les.tanggal_mulai?.includes("T")
                     ? les.tanggal_mulai.split("T")[1].substring(0, 5)
                     : "00:00";
@@ -1259,25 +1287,30 @@ function MyLessons({ loggedInId, activeLessons }: any) {
                     new Date(les.tanggal_mulai) < new Date()
                       ? "Completed"
                       : "Upcoming";
+=======
+                  // 1. Ambil Nama Hari (cukup ambil dari data jadwal)
+                  const dayName = jadwal ? jadwal.hari : "-";
+
+                  // 2. Format Jam
+                  const start = (les.jam_mulai || jadwal?.jam_mulai || "00:00").substring(0, 5);
+                  const end = (les.jam_selesai || jadwal?.jam_selesai || "00:00").substring(0, 5);
+
+                  // 3. Durasi
+                  const startMins = timeToMinutes(start);
+                  const endMins = timeToMinutes(end);
+                  const dur = startMins > 0 ? ((endMins - startMins) / 60).toFixed(1) : "0.0";
+>>>>>>> 3cb0869 (perbaikan my lesson)
 
                   return (
-                    <tr
-                      key={les.id}
-                      className="border-b border-slate-50 hover:bg-slate-50/80 transition-colors"
-                    >
-                      <td className="px-5 py-3.5">
-                        <span className="font-medium text-slate-800">
-                          {mapel?.nama || "Unknown"}
-                        </span>
-                      </td>
+                    <tr key={les.id} className="border-b border-slate-50 hover:bg-slate-50/80 transition-colors">
+                      <td className="px-5 py-3.5 font-medium text-slate-800">{mapel?.nama || "Unknown"}</td>
                       <td className="px-5 py-3.5">
                         <div className="flex items-center gap-2">
                           <Avatar name={guru?.nama ?? "?"} size="sm" />
-                          <span className="text-slate-600">
-                            {guru?.nama || "-"}
-                          </span>
+                          <span className="text-slate-600">{guru?.nama || "-"}</span>
                         </div>
                       </td>
+<<<<<<< HEAD
                       <td className="px-5 py-3.5 text-slate-600">
                         {les.tanggal_mulai
                           ? formatDate(les.tanggal_mulai)
@@ -1294,6 +1327,14 @@ function MyLessons({ loggedInId, activeLessons }: any) {
                           }
                         />
                       </td>
+=======
+                      {/* Tampilan Hari saja */}
+                      <td className="px-5 py-3.5 text-slate-600 font-medium">
+                        {dayName}
+                      </td>
+                      <td className="px-5 py-3.5 text-slate-600">{start} - {end}</td>
+                      <td className="px-5 py-3.5 text-slate-600">{dur} hrs</td>
+>>>>>>> 3cb0869 (perbaikan my lesson)
                     </tr>
                   );
                 })}
@@ -1306,7 +1347,7 @@ function MyLessons({ loggedInId, activeLessons }: any) {
 }
 
 // ─── Page: Teacher Availability ────────────────────────────────────────────
-function TeacherAvailability({loggedinId}: any) {
+function TeacherAvailability({ loggedinId }: any) {
   const guruId = loggedinId;
   const [availList, setAvailList] = useState<JadwalKesediaan[]>(
     JADWAL.filter((j) => j.id_guru === guruId),
@@ -1445,7 +1486,7 @@ function TeacherAvailability({loggedinId}: any) {
 }
 
 // ─── Page: Teacher Schedule (Calendar) ─────────────────────────────────────
-function TeacherSchedule({loggedInId}:any) {
+function TeacherSchedule({ loggedInId }: any) {
   const guruId = loggedInId;
   const [selLesson, setSelLesson] = useState<Les | null>(null);
 
@@ -2354,26 +2395,30 @@ function StudentDashboard({
           </div>
         </div>
         <div className="bg-white border border-slate-200 rounded-xl p-5 space-y-3">
-          <h2 className="text-sm font-semibold text-slate-700">
-            Recent Lessons
-          </h2>
+          <h2 className="text-sm font-semibold text-slate-700">Recent Lessons</h2>
           {myLes.slice(0, 2).map((les) => {
-            // FIX: guru diambil lewat jadwal.id_guru, mapel lewat les.id_mapel
             const jadwal = JADWAL.find((j) => j.id === les.id_jadwal);
             const guru = GURU.find((g) => g.id === jadwal?.id_guru);
             const mapel = MAPEL.find((m) => m.id === les.id_mapel);
+
+            // Gunakan fungsi formatDateEn yang sama dengan MyLessons agar bahasa Inggris
+            const dateStr = les.tanggal_mulai
+              ? new Date(les.tanggal_mulai).toLocaleDateString("en-US", {
+                weekday: "short",
+                day: "numeric",
+                month: "long",
+                year: "numeric",
+              })
+              : "-";
+
             return (
-              <div
-                key={les.id}
-                className="flex items-center gap-3 p-3 border border-slate-100 rounded-xl"
-              >
+              <div key={les.id} className="flex items-center gap-3 p-3 border border-slate-100 rounded-xl">
                 <Avatar name={guru?.nama ?? "?"} size="sm" />
                 <div>
-                  <p className="text-sm font-medium text-slate-700">
-                    {mapel?.nama}
-                  </p>
+                  <p className="text-sm font-medium text-slate-700">{mapel?.nama}</p>
+                  {/* Tampilan yang sudah bersih dan bahasa Inggris */}
                   <p className="text-xs text-slate-400">
-                    {guru?.nama} · {formatDate(les.tanggal_mulai)}
+                    {guru?.nama} · {dateStr}
                   </p>
                 </div>
               </div>
