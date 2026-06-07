@@ -1290,8 +1290,8 @@ function MyLessons({ loggedInId, activeLessons, db }: any) {
 }
 
 // ─── Page: Teacher Availability ────────────────────────────────────────────
-function TeacherAvailability({ loggedinId }: any) {
-  const guruId = loggedinId;
+function TeacherAvailability({ loggedInId }: any) {
+  const guruId = loggedInId;
   const [availList, setAvailList] = useState<JadwalKesediaan[]>(
     JADWAL.filter((j) => j.id_guru === guruId),
   );
@@ -1429,15 +1429,61 @@ function TeacherAvailability({ loggedinId }: any) {
 }
 
 // ─── Page: Teacher Schedule (Calendar) ─────────────────────────────────────
-function TeacherSchedule({ loggedInId }: any) {
+function TeacherSchedule({ loggedInId, db }: any) {
   const guruId = loggedInId;
-  const [selLesson, setSelLesson] = useState<Les | null>(null);
+  const [selLesson, setSelLesson] = useState<any | null>(null);
+  const [teacherLessons, setTeacherLessons] = useState<any[]>([]);
+  const [weekStart, setWeekStart] = useState(() => {
+    const d = new Date();
+    const day = d.getDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    d.setDate(d.getDate() + diff);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  });
 
-  // FIX: filter jadwal langsung by id_guru, tidak pakai id_keahlian
-  const guruJadwalIds = JADWAL.filter((j) => j.id_guru === guruId).map(
-    (j) => j.id,
-  );
-  const myLessons = LES_DATA.filter((l) => guruJadwalIds.includes(l.id_jadwal));
+  useEffect(() => {
+    if (!loggedInId) return;
+
+    fetch(`http://localhost:8080/api/les/guru?id_guru=${loggedInId}`)
+      .then((res) => res.json())
+      .then((data) => setTeacherLessons(data))
+      .catch((err) => console.error("Gagal mengambil schedule guru:", err));
+  }, [loggedInId]);
+
+  const weekDates = HARI.map((hari, i) => {
+    const d = new Date(weekStart);
+    d.setDate(weekStart.getDate() + i);
+    return {
+      hari,
+      date: d,
+      iso: d.toISOString().split("T")[0],
+    };
+  });
+
+  function getLessonsForDay(dayIso: string) {
+    return teacherLessons.filter(
+      (l) => l.tanggal_mulai.split("T")[0] === dayIso
+    );
+  }
+
+  function prevWeek() {
+    const d = new Date(weekStart);
+    d.setDate(d.getDate() - 7);
+    setWeekStart(d);
+  }
+
+  function nextWeek() {
+    const d = new Date(weekStart);
+    d.setDate(d.getDate() + 7);
+    setWeekStart(d);
+  }
+
+  const weekLabel = weekStart.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 
   const COLORS = [
     "bg-indigo-400",
@@ -1446,15 +1492,6 @@ function TeacherSchedule({ loggedInId }: any) {
     "bg-emerald-400",
     "bg-amber-400",
   ];
-
-  const weekDates = HARI.map((h, i) => {
-    const d = new Date(2025, 0, 20 + i);
-    return { hari: h, date: d, iso: d.toISOString().split("T")[0] };
-  });
-
-  function getLessonsForDay(dayIso: string) {
-    return myLessons.filter((l) => l.tanggal_mulai.split("T")[0] === dayIso);
-  }
 
   return (
     <div className="space-y-6">
@@ -1470,13 +1507,16 @@ function TeacherSchedule({ loggedInId }: any) {
             variant="secondary"
             size="sm"
             icon={<ChevronLeft size={14} />}
+            onClick={prevWeek}
           >
             Prev
           </Button>
+
           <span className="text-sm font-medium text-slate-700 px-2">
-            Week of Jan 20, 2025
+            Week of {weekLabel}
           </span>
-          <Button variant="secondary" size="sm">
+
+          <Button variant="secondary" size="sm" onClick={nextWeek}>
             Next <ChevronRight size={14} />
           </Button>
         </div>
@@ -1506,8 +1546,8 @@ function TeacherSchedule({ loggedInId }: any) {
                 )}
                 {dayLessons.map((les) => {
                   // FIX: mapel & siswa diambil dari les.id_mapel langsung
-                  const mapel = MAPEL.find((m) => m.id === les.id_mapel);
-                  const siswa = SISWA.find((s) => s.id === les.id_siswa);
+                  const mapel = db.mapel.find((m: any) => m.id === les.id_mapel);
+                  const siswa = db.siswa.find((s: any) => s.id === les.id_siswa);
                   const start = toHHMM(les.tanggal_mulai);
                   const end = toHHMM(les.tanggal_selesai);
                   return (
@@ -1535,11 +1575,9 @@ function TeacherSchedule({ loggedInId }: any) {
       {selLesson &&
         (() => {
           // FIX: ambil data dari les.id_mapel, les.id_jenjang, jadwal.id_guru
-          const mapel = MAPEL.find((m) => m.id === selLesson.id_mapel);
-          const jenjang = JENJANG.find((j) => j.id === selLesson.id_jenjang);
-          const jadwal = JADWAL.find((j) => j.id === selLesson.id_jadwal);
-          const guru = GURU.find((g) => g.id === jadwal?.id_guru);
-          const siswa = SISWA.find((s) => s.id === selLesson.id_siswa);
+          const mapel = db.mapel.find((m: any) => m.id === selLesson.id_mapel);
+          const jenjang = db.jenjang.find((j: any) => j.id === selLesson.id_jenjang);
+          const siswa = db.siswa.find((s: any) => s.id === selLesson.id_siswa);
           const start = toHHMM(selLesson.tanggal_mulai);
           const end = toHHMM(selLesson.tanggal_selesai);
           return (
@@ -3251,7 +3289,7 @@ export default function App() {
     });
   }, []);
 
-  
+
   useEffect(() => {
     // Mengecek jika yang login adalah student dan punya ID
     if (loggedInRole === "student" && loggedInId) {
@@ -3307,8 +3345,8 @@ export default function App() {
       if (page === "mylessons")
         return (
           <MyLessons loggedInId={loggedInId}
-          activeLessons={activeLessons}
-          db={db} />
+            activeLessons={activeLessons}
+            db={db} />
         );
       return (
         <StudentDashboard
@@ -3322,13 +3360,17 @@ export default function App() {
     if (loggedInRole === "teacher") {
       // Tambahkan pelemparan parameter loggedInId dan loggedInName di sini
       if (page === "availability") return <TeacherAvailability loggedInId={loggedInId} />;
-      if (page === "schedule") return <TeacherSchedule loggedInId={loggedInId} />;
+      if (page === "schedule") {
+        return <TeacherSchedule loggedInId={loggedInId} db={db} />;
+      }
       return <TeacherDashboard loggedInId={loggedInId} loggedInName={loggedInName} />;
     }
     if (page === "students") return <AdminStudents search={globalSearch} />;
     if (page === "teachers") return <AdminTeachers search={globalSearch} />;
     if (page === "admins") return <AdminAdmins search={globalSearch} />;
-    if (page === "schedules") return <AdminSchedules search={globalSearch} />;
+    if (page === "schedule") {
+      return <TeacherSchedule loggedInId={loggedInId} db={db} />;
+    }
     return <AdminDashboard />;
   }
 

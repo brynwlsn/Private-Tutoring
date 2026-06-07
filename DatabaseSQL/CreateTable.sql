@@ -1,12 +1,12 @@
 -- =========================================
 -- DROP TABLE IF EXIST
 -- =========================================
+DROP TABLE if exists Detail_Daftar_Les
 DROP TABLE if exists Les;
+DROP TABLE if exists Keahlian_Guru
+DROP TABLE if exists Jadwal_Kesediaan_Guru
 DROP TABLE if exists Siswa ;
 DROP TABLE if exists Guru
-DROP TABLE if exists Jadwal_Kesediaan_Guru
-DROP TABLE if exists Keahlian_Guru
-DROP TABLE if exists Detail_Daftar_Les
 DROP TABLE if exists Jenjang
 DROP TABLE if exists Mata_pelajaran
 DROP TABLE if exists Admin

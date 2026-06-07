@@ -36,6 +36,7 @@ public class BackendServer {
         server.createContext("/api/keahlian", new GetKeahlianHandler());
         server.createContext("/api/jadwal", new GetJadwalHandler());
         server.createContext("/api/admin", new GetAdminHandler());
+        server.createContext("/api/les/guru", new GetTeacherLessonsHandler());
 
         server.setExecutor(null);
         System.out.println("Server Back-End Java jalan di: http://localhost:8080");
@@ -261,6 +262,78 @@ public class BackendServer {
             } catch (Exception e) {
                 e.printStackTrace();
                 kirimResponJSON(exchange, 500, "[]");
+            }
+        }
+    }
+    
+    static class GetTeacherLessonsHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            aturCORS(exchange);
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(204, -1);
+                return;
+            }
+
+            if ("GET".equalsIgnoreCase(exchange.getRequestMethod())) {
+                try {
+                    String query = exchange.getRequestURI().getQuery();
+                    String idGuruStr = query.split("id_guru=")[1].split("&")[0];
+                    int idGuru = Integer.parseInt(idGuruStr);
+
+                    String sql = "SELECT l.id_les, l.id_siswa, s.nama AS nama_siswa, " +
+                            "CONVERT(varchar(10), l.tgl_mulai, 120) AS tgl_mulai, " +
+                            "CONVERT(varchar(10), l.tgl_selesai, 120) AS tgl_selesai, " +
+                            "ddl.id_jadwal, ddl.id_mapel, ddl.id_jenjang, " +
+                            "j.hari, " +
+                            "CONVERT(varchar(5), j.jam_mulai, 108) AS jam_mulai, " +
+                            "CONVERT(varchar(5), j.jam_selesai, 108) AS jam_selesai " +
+                            "FROM Les l " +
+                            "JOIN Siswa s ON l.id_siswa = s.id_siswa " +
+                            "JOIN Detail_Daftar_Les ddl ON l.id_les = ddl.id_les " +
+                            "JOIN Jadwal_Kesediaan_Guru j ON ddl.id_jadwal = j.id_jadwal " +
+                            "WHERE j.id_guru = ?";
+
+                    StringBuilder json = new StringBuilder("[");
+                    try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD);
+                            PreparedStatement ps = conn.prepareStatement(sql)) {
+
+                        ps.setInt(1, idGuru);
+                        ResultSet rs = ps.executeQuery();
+
+                        boolean first = true;
+                        while (rs.next()) {
+                            if (!first)
+                                json.append(",");
+
+                            json.append("{")
+                                    .append("\"id\":").append(rs.getInt("id_les")).append(",")
+                                    .append("\"id_siswa\":").append(rs.getInt("id_siswa")).append(",")
+                                    .append("\"nama_siswa\":\"").append(escapeJson(rs.getString("nama_siswa")))
+                                    .append("\",")
+                                    .append("\"id_jadwal\":").append(rs.getInt("id_jadwal")).append(",")
+                                    .append("\"id_mapel\":").append(rs.getInt("id_mapel")).append(",")
+                                    .append("\"id_jenjang\":").append(rs.getInt("id_jenjang")).append(",")
+                                    .append("\"hari\":\"").append(escapeJson(rs.getString("hari"))).append("\",")
+                                    .append("\"jam_mulai\":\"").append(rs.getString("jam_mulai")).append("\",")
+                                    .append("\"jam_selesai\":\"").append(rs.getString("jam_selesai")).append("\",")
+                                    .append("\"tanggal_mulai\":\"").append(rs.getString("tgl_mulai")).append("T")
+                                    .append(rs.getString("jam_mulai")).append("\",")
+                                    .append("\"tanggal_selesai\":\"").append(rs.getString("tgl_selesai")).append("T")
+                                    .append(rs.getString("jam_selesai")).append("\"")
+                                    .append("}");
+
+                            first = false;
+                        }
+                    }
+
+                    json.append("]");
+                    kirimResponJSON(exchange, 200, json.toString());
+
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    kirimResponJSON(exchange, 500, "[]");
+                }
             }
         }
     }
