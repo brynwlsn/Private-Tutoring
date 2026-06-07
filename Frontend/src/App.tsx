@@ -695,7 +695,10 @@ function TopBar({
 }
 
 // ─── Page: Book a Lesson (Student) ───────────────────────────────────────────
-function BookLesson({ loggedInId, setActiveLessons }: any) {
+// ─── Page: Book a Lesson (Student) ───────────────────────────────────────────
+// Tambahkan parameter db di sini agar komponen ini bisa membaca data dari database
+// ─── Page: Book a Lesson (Student) ───────────────────────────────────────────
+function BookLesson({ loggedInId, setActiveLessons, db }: any) {
   const [step, setStep] = useState(1);
   const [selJenjang, setSelJenjang] = useState("");
   const [selMapel, setSelMapel] = useState("");
@@ -711,28 +714,31 @@ function BookLesson({ loggedInId, setActiveLessons }: any) {
   const [selSlots, setSelSlots] = useState<JadwalKesediaan[]>([]);
   const [selPickedDays, setSelPickedDays] = useState<string[]>([]);
 
+  // Menggunakan db.keahlian dan db.guru dari database
   const filteredGuru = useMemo(() => {
     if (!selJenjang || !selMapel) return [];
-    const validGuruIds = KEAHLIAN.filter(
-      (k) =>
+    const validGuruIds = db.keahlian.filter(
+      (k: any) =>
         k.id_jenjang === Number(selJenjang) && k.id_mapel === Number(selMapel),
-    ).map((k) => k.id_guru);
-    return GURU.filter((g) => validGuruIds.includes(g.id));
-  }, [selJenjang, selMapel]);
+    ).map((k: any) => k.id_guru);
+    return db.guru.filter((g: any) => validGuruIds.includes(g.id));
+  }, [selJenjang, selMapel, db]);
 
-  const guruJadwal = useMemo(() => {
+  // FIX: Diberi tipe eksplisit <JadwalKesediaan[]> agar TypeScript tidak merah
+  const guruJadwal = useMemo<JadwalKesediaan[]>(() => {
     if (selGurus.length === 0) return [];
-    return JADWAL.filter(
-      (j) => selGurus.includes(j.id_guru) && j.status === "tersedia",
+    return db.jadwal.filter(
+      (j: JadwalKesediaan) => selGurus.includes(j.id_guru) && j.status === "tersedia",
     );
-  }, [selGurus]);
+  }, [selGurus, db]);
 
   const availableDays = useMemo(
     () => [...new Set(guruJadwal.map((j) => j.hari))],
     [guruJadwal],
   );
 
-  const slotsForPickedDays = useMemo(() => {
+  // FIX: Diberi tipe eksplisit <JadwalKesediaan[]> agar TypeScript tidak merah
+  const slotsForPickedDays = useMemo<JadwalKesediaan[]>(() => {
     return guruJadwal.filter((j) => selPickedDays.includes(j.hari));
   }, [selPickedDays, guruJadwal]);
 
@@ -755,9 +761,9 @@ function BookLesson({ loggedInId, setActiveLessons }: any) {
     if (selSlots.length === 0) setStep(4);
   }
 
-  const selMapelObj = MAPEL.find((m) => m.id === Number(selMapel));
-  const selJenjangObj = JENJANG.find((j) => j.id === Number(selJenjang));
-  const selGuruObjs = GURU.filter((g) => selGurus.includes(g.id));
+  const selMapelObj = db.mapel.find((m: any) => m.id === Number(selMapel));
+  const selJenjangObj = db.jenjang.find((j: any) => j.id === Number(selJenjang));
+  const selGuruObjs = db.guru.filter((g: any) => selGurus.includes(g.id));
 
   const bookedSlotIds = useMemo(() => {
     if (selGurus.length === 0 || !startDate || !endDate)
@@ -788,10 +794,9 @@ function BookLesson({ loggedInId, setActiveLessons }: any) {
           id_jadwal: slot.id,
           id_mapel: Number(selMapel),
           id_jenjang: Number(selJenjang),
-
           tanggal_mulai: `${startDate}T${slot.jam_mulai}`,
           tanggal_selesai: `${endDate}T${slot.jam_selesai}`,
-          durasi: durasiMenit, // <-- Sekarang durasinya dikirim sesuai hitungan asli
+          durasi: durasiMenit,
         };
 
         const response = await fetch("http://localhost:8080/api/les", {
@@ -908,7 +913,7 @@ function BookLesson({ loggedInId, setActiveLessons }: any) {
                 setSelGurus([]);
                 setSelSlots([]);
               }}
-              options={JENJANG.map((j) => ({
+              options={db.jenjang.map((j: any) => ({
                 value: String(j.id),
                 label: j.nama,
               }))}
@@ -923,7 +928,7 @@ function BookLesson({ loggedInId, setActiveLessons }: any) {
                 setSelGurus([]);
                 setSelSlots([]);
               }}
-              options={MAPEL.map((m) => ({
+              options={db.mapel.map((m: any) => ({
                 value: String(m.id),
                 label: m.nama,
               }))}
@@ -951,11 +956,11 @@ function BookLesson({ loggedInId, setActiveLessons }: any) {
             </h2>
             {filteredGuru.length === 0 ? (
               <p className="text-sm text-slate-400 text-center py-4">
-                No teachers available.
+                No teachers available for this criteria.
               </p>
             ) : (
               <div className="grid grid-cols-2 gap-3">
-                {filteredGuru.map((g) => (
+                {filteredGuru.map((g: any) => (
                   <button
                     key={g.id}
                     onClick={() => {
@@ -1042,8 +1047,8 @@ function BookLesson({ loggedInId, setActiveLessons }: any) {
                         {daySlots.map((slot) => {
                           const isSel = selSlots.some((s) => s.id === slot.id);
                           const isBooked = bookedSlotIds.has(slot.id);
-                          const slotGuru = GURU.find(
-                            (g) => g.id === slot.id_guru,
+                          const slotGuru = db.guru.find(
+                            (g: any) => g.id === slot.id_guru,
                           );
                           return (
                             <button
@@ -1146,7 +1151,7 @@ function BookLesson({ loggedInId, setActiveLessons }: any) {
                 label="Teacher"
                 value={
                   selGuruObjs.length > 0
-                    ? selGuruObjs.map((g) => g.nama).join(", ")
+                    ? selGuruObjs.map((g: any) => g.nama).join(", ")
                     : "Not selected"
                 }
               />
@@ -1219,8 +1224,7 @@ function SummaryRow({ icon, label, value }: any) {
 }
 
 // ─── Page: My Lessons (Student) ────────────────────────────────────────────
-// ─── Page: My Lessons (Student) ────────────────────────────────────────────
-function MyLessons({ loggedInId, activeLessons }: any) {
+function MyLessons({ loggedInId, activeLessons, db }: any) {
   const myLes = activeLessons;
 
   return (
@@ -1246,9 +1250,9 @@ function MyLessons({ loggedInId, activeLessons }: any) {
             <tbody>
               {Array.isArray(myLes) &&
                 myLes.map((les: any) => {
-                  const mapel = MAPEL.find((m) => m.id === les.id_mapel);
-                  const jadwal = JADWAL.find((j) => j.id === les.id_jadwal);
-                  const guru = GURU.find((g) => g.id === jadwal?.id_guru);
+                  const mapel = db.mapel.find((m: any) => m.id === les.id_mapel);
+                  const jadwal = db.jadwal.find((j: any) => j.id === les.id_jadwal);
+                  const guru = db.guru.find((g: any) => g.id === jadwal?.id_guru);
 
                   // 1. Ambil Nama Hari
                   const dayName = jadwal ? jadwal.hari : "-";
@@ -3247,6 +3251,20 @@ export default function App() {
     });
   }, []);
 
+  
+  useEffect(() => {
+    // Mengecek jika yang login adalah student dan punya ID
+    if (loggedInRole === "student" && loggedInId) {
+      fetch(`http://localhost:8080/api/les/siswa?id_siswa=${loggedInId}`)
+        .then((res) => res.json())
+        .then((data) => {
+          // Menyimpan data les dari backend langsung ke state
+          setActiveLessons(data);
+        })
+        .catch((err) => console.error("Gagal mengambil data les siswa:", err));
+    }
+  }, [loggedInId, loggedInRole]);
+
   function handleLogin(role: Role, nama: string, id: number) {
     setLoggedInRole(role);
     setLoggedInName(nama);
@@ -3283,11 +3301,14 @@ export default function App() {
           <BookLesson
             loggedInId={loggedInId}
             setActiveLessons={setActiveLessons}
+            db={db}
           />
         );
       if (page === "mylessons")
         return (
-          <MyLessons loggedInId={loggedInId} activeLessons={activeLessons} />
+          <MyLessons loggedInId={loggedInId}
+          activeLessons={activeLessons}
+          db={db} />
         );
       return (
         <StudentDashboard
