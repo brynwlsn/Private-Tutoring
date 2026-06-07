@@ -95,7 +95,7 @@ CREATE TABLE Keahlian_Guru (
 );
 
 -- =========================================
--- 7. Tabel Les
+-- 8. Tabel Les
 -- =========================================
 CREATE TABLE Les (
     id_les INT PRIMARY KEY,
@@ -106,7 +106,7 @@ CREATE TABLE Les (
 );
 
 -- =========================================
--- 8. Tabel Detail_Daftar_Les
+-- 9. Tabel Detail_Daftar_Les
 -- =========================================
 CREATE TABLE Detail_Daftar_Les (
     id_detail INT PRIMARY KEY,
