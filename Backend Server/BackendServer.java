@@ -13,35 +13,341 @@ import java.sql.ResultSet;
 import java.util.stream.Collectors;
 
 public class BackendServer {
-    // "jdbc:sqlserver://localhost\\SQLEXPRESS:1433;" +
-    // "databaseName=MIBDLesPrivat;" +"encrypt=true;"
-    // +"trustServerCertificate=true;";
-    // String user = "sa";
-    // String password = "passwordSQLAnda";
 
-    // Connect Database
-    private static final String URL = "jdbc:sqlserver://localhost\\SQLEXPRESS:1433;" + "databaseName=LesPrivat;"
-            + "encrypt=true;" + "trustServerCertificate=true;";
+    private static final String URL = "jdbc:sqlserver://localhost\\SQLEXPRESS:1433;"
+            + "databaseName=LesPrivat;"
+            + "encrypt=true;"
+            + "trustServerCertificate=true;";
     private static final String USER = "sa";
     private static final String PASSWORD = "passwordSQLAnda";
 
     public static void main(String[] args) throws IOException {
-        // Menyalakan server Back-End di port 8080
         HttpServer server = HttpServer.create(new InetSocketAddress(8080), 0);
 
-        // Mendaftarkan Endpoint API Resmi
         server.createContext("/api/register", new RegisterHandler());
-        server.createContext("/api/login", new LoginHandler());
-        server.createContext("/api/les", new BookingHandler());
+        server.createContext("/api/login",    new LoginHandler());
+        // Booking: POST ke /api/les, GET ke /api/les/siswa?id_siswa=...
         server.createContext("/api/les/siswa", new GetStudentLessonsHandler());
+        server.createContext("/api/les",       new BookingHandler());
+        server.createContext("/api/guru",     new GetGuruHandler());
+        server.createContext("/api/siswa",    new GetSiswaHandler());
+        server.createContext("/api/mapel",    new GetMapelHandler());
+        server.createContext("/api/jenjang",  new GetJenjangHandler());
+        server.createContext("/api/keahlian", new GetKeahlianHandler());
+        server.createContext("/api/jadwal",   new GetJadwalHandler());
+        server.createContext("/api/admin",    new GetAdminHandler());
+
         server.setExecutor(null);
         System.out.println("Server Back-End Java jalan di: http://localhost:8080");
         server.start();
     }
 
-    // ---------------------------------------------------------
-    // HANDLER 1: REGISTRASI AKUN (SISWA, GURU, ADMIN)
-    // ---------------------------------------------------------
+    // =========================================================
+    // GET HANDLERS
+    // =========================================================
+
+    static class GetGuruHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            aturCORS(exchange);
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(204, -1);
+                return;
+            }
+            if (!"GET".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(405, -1);
+                return;
+            }
+
+            try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD)) {
+                String sql = "SELECT id_guru, nama, email, no_hp, id_admin FROM Guru ORDER BY nama";
+                PreparedStatement ps = conn.prepareStatement(sql);
+                ResultSet rs = ps.executeQuery();
+
+                StringBuilder json = new StringBuilder("[");
+                boolean first = true;
+                while (rs.next()) {
+                    if (!first) json.append(",");
+                    json.append("{")
+                        .append("\"id\":").append(rs.getInt("id_guru")).append(",")
+                        .append("\"nama\":\"").append(escapeJson(rs.getString("nama"))).append("\",")
+                        .append("\"email\":\"").append(escapeJson(nullSafe(rs.getString("email")))).append("\",")
+                        .append("\"no_hp\":\"").append(escapeJson(nullSafe(rs.getString("no_hp")))).append("\",")
+                        .append("\"id_admin\":").append(rs.getObject("id_admin") != null ? rs.getInt("id_admin") : "null")
+                        .append("}");
+                    first = false;
+                }
+                json.append("]");
+                kirimResponJSON(exchange, 200, json.toString());
+
+            } catch (Exception e) {
+                e.printStackTrace();
+                kirimResponJSON(exchange, 500, "[]");
+            }
+        }
+    }
+
+
+    static class GetSiswaHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            aturCORS(exchange);
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(204, -1);
+                return;
+            }
+            if (!"GET".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(405, -1);
+                return;
+            }
+
+            try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD)) {
+                String sql = "SELECT id_siswa, nama, email, no_hp, tgl_lahir, jenis_kelamin, id_jenjang "
+                           + "FROM Siswa ORDER BY nama";
+                PreparedStatement ps = conn.prepareStatement(sql);
+                ResultSet rs = ps.executeQuery();
+
+                StringBuilder json = new StringBuilder("[");
+                boolean first = true;
+                while (rs.next()) {
+                    if (!first) json.append(",");
+
+                    // tgl_lahir bisa null di schema
+                    String tglLahir = rs.getDate("tgl_lahir") != null
+                            ? rs.getDate("tgl_lahir").toString()
+                            : "";
+
+                    json.append("{")
+                        .append("\"id\":").append(rs.getInt("id_siswa")).append(",")
+                        .append("\"nama\":\"").append(escapeJson(rs.getString("nama"))).append("\",")
+                        .append("\"email\":\"").append(escapeJson(nullSafe(rs.getString("email")))).append("\",")
+                        .append("\"no_hp\":\"").append(escapeJson(nullSafe(rs.getString("no_hp")))).append("\",")
+                        .append("\"tanggal_lahir\":\"").append(tglLahir).append("\",")
+                        .append("\"jenis_kelamin\":\"").append(escapeJson(nullSafe(rs.getString("jenis_kelamin")))).append("\",")
+                        .append("\"id_jenjang\":").append(rs.getObject("id_jenjang") != null ? rs.getInt("id_jenjang") : "null")
+                        .append("}");
+                    first = false;
+                }
+                json.append("]");
+                kirimResponJSON(exchange, 200, json.toString());
+
+            } catch (Exception e) {
+                e.printStackTrace();
+                kirimResponJSON(exchange, 500, "[]");
+            }
+        }
+    }
+
+    static class GetMapelHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            aturCORS(exchange);
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(204, -1);
+                return;
+            }
+            if (!"GET".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(405, -1);
+                return;
+            }
+
+            try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD)) {
+                // Alias nama_mapel → nama supaya frontend tidak perlu diubah
+                String sql = "SELECT id_mapel, nama_mapel AS nama FROM Mata_pelajaran ORDER BY id_mapel";
+                PreparedStatement ps = conn.prepareStatement(sql);
+                ResultSet rs = ps.executeQuery();
+
+                StringBuilder json = new StringBuilder("[");
+                boolean first = true;
+                while (rs.next()) {
+                    if (!first) json.append(",");
+                    json.append("{")
+                        .append("\"id\":").append(rs.getInt("id_mapel")).append(",")
+                        .append("\"nama\":\"").append(escapeJson(rs.getString("nama"))).append("\"")
+                        .append("}");
+                    first = false;
+                }
+                json.append("]");
+                kirimResponJSON(exchange, 200, json.toString());
+
+            } catch (Exception e) {
+                e.printStackTrace();
+                kirimResponJSON(exchange, 500, "[]");
+            }
+        }
+    }
+
+    static class GetJenjangHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            aturCORS(exchange);
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(204, -1);
+                return;
+            }
+            if (!"GET".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(405, -1);
+                return;
+            }
+
+            try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD)) {
+                String sql = "SELECT id_jenjang, nama_jenjang AS nama FROM Jenjang ORDER BY id_jenjang";
+                PreparedStatement ps = conn.prepareStatement(sql);
+                ResultSet rs = ps.executeQuery();
+
+                StringBuilder json = new StringBuilder("[");
+                boolean first = true;
+                while (rs.next()) {
+                    if (!first) json.append(",");
+                    json.append("{")
+                        .append("\"id\":").append(rs.getInt("id_jenjang")).append(",")
+                        .append("\"nama\":\"").append(escapeJson(rs.getString("nama"))).append("\"")
+                        .append("}");
+                    first = false;
+                }
+                json.append("]");
+                kirimResponJSON(exchange, 200, json.toString());
+
+            } catch (Exception e) {
+                e.printStackTrace();
+                kirimResponJSON(exchange, 500, "[]");
+            }
+        }
+    }
+
+    static class GetKeahlianHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            aturCORS(exchange);
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(204, -1);
+                return;
+            }
+            if (!"GET".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(405, -1);
+                return;
+            }
+
+            try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD)) {
+                String sql = "SELECT id_keahlian, id_guru, id_mapel, id_jenjang FROM Keahlian_Guru";
+                PreparedStatement ps = conn.prepareStatement(sql);
+                ResultSet rs = ps.executeQuery();
+
+                StringBuilder json = new StringBuilder("[");
+                boolean first = true;
+                while (rs.next()) {
+                    if (!first) json.append(",");
+                    json.append("{")
+                        .append("\"id\":").append(rs.getInt("id_keahlian")).append(",")
+                        .append("\"id_guru\":").append(rs.getObject("id_guru") != null ? rs.getInt("id_guru") : "null").append(",")
+                        .append("\"id_mapel\":").append(rs.getObject("id_mapel") != null ? rs.getInt("id_mapel") : "null").append(",")
+                        .append("\"id_jenjang\":").append(rs.getObject("id_jenjang") != null ? rs.getInt("id_jenjang") : "null")
+                        .append("}");
+                    first = false;
+                }
+                json.append("]");
+                kirimResponJSON(exchange, 200, json.toString());
+
+            } catch (Exception e) {
+                e.printStackTrace();
+                kirimResponJSON(exchange, 500, "[]");
+            }
+        }
+    }
+
+    static class GetJadwalHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            aturCORS(exchange);
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(204, -1);
+                return;
+            }
+            if (!"GET".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(405, -1);
+                return;
+            }
+
+            try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD)) {
+                String sql =
+                    "SELECT j.id_jadwal, j.hari, " +
+                    "CONVERT(varchar(5), j.jam_mulai, 108) AS jam_mulai, " +
+                    "CONVERT(varchar(5), j.jam_selesai, 108) AS jam_selesai, " +
+                    "j.id_guru, j.id_admin, " +
+                    "CASE WHEN COUNT(d.id_jadwal) > 0 THEN 'terisi' ELSE 'tersedia' END AS status " +
+                    "FROM Jadwal_Kesediaan_Guru j " +
+                    "LEFT JOIN Detail_Daftar_Les d ON j.id_jadwal = d.id_jadwal " +
+                    "GROUP BY j.id_jadwal, j.hari, j.jam_mulai, j.jam_selesai, j.id_guru, j.id_admin " +
+                    "ORDER BY j.hari, j.jam_mulai";
+
+                PreparedStatement ps = conn.prepareStatement(sql);
+                ResultSet rs = ps.executeQuery();
+
+                StringBuilder json = new StringBuilder("[");
+                boolean first = true;
+                while (rs.next()) {
+                    if (!first) json.append(",");
+                    json.append("{")
+                        .append("\"id\":").append(rs.getInt("id_jadwal")).append(",")
+                        .append("\"hari\":\"").append(escapeJson(rs.getString("hari"))).append("\",")
+                        .append("\"jam_mulai\":\"").append(escapeJson(rs.getString("jam_mulai"))).append("\",")
+                        .append("\"jam_selesai\":\"").append(escapeJson(rs.getString("jam_selesai"))).append("\",")
+                        .append("\"id_guru\":").append(rs.getObject("id_guru") != null ? rs.getInt("id_guru") : "null").append(",")
+                        .append("\"id_admin\":").append(rs.getObject("id_admin") != null ? rs.getInt("id_admin") : "null").append(",")
+                        .append("\"status\":\"").append(rs.getString("status")).append("\"")
+                        .append("}");
+                    first = false;
+                }
+                json.append("]");
+                kirimResponJSON(exchange, 200, json.toString());
+
+            } catch (Exception e) {
+                e.printStackTrace();
+                kirimResponJSON(exchange, 500, "[]");
+            }
+        }
+    }
+
+    static class GetAdminHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            aturCORS(exchange);
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(204, -1);
+                return;
+            }
+            if (!"GET".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(405, -1);
+                return;
+            }
+
+            try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD)) {
+                String sql = "SELECT id_admin, nama, email, no_hp FROM Admin ORDER BY nama";
+                PreparedStatement ps = conn.prepareStatement(sql);
+                ResultSet rs = ps.executeQuery();
+
+                StringBuilder json = new StringBuilder("[");
+                boolean first = true;
+                while (rs.next()) {
+                    if (!first) json.append(",");
+                    json.append("{")
+                        .append("\"id\":").append(rs.getInt("id_admin")).append(",")
+                        .append("\"nama\":\"").append(escapeJson(rs.getString("nama"))).append("\",")
+                        .append("\"email\":\"").append(escapeJson(nullSafe(rs.getString("email")))).append("\",")
+                        .append("\"no_hp\":\"").append(escapeJson(nullSafe(rs.getString("no_hp")))).append("\"")
+                        .append("}");
+                    first = false;
+                }
+                json.append("]");
+                kirimResponJSON(exchange, 200, json.toString());
+
+            } catch (Exception e) {
+                e.printStackTrace();
+                kirimResponJSON(exchange, 500, "[]");
+            }
+        }
+    }
+
     static class RegisterHandler implements HttpHandler {
         @Override
         public void handle(HttpExchange exchange) throws IOException {
@@ -55,10 +361,10 @@ public class BackendServer {
                 String jsonInput = bacaBody(exchange);
 
                 try {
-                    String role = ambilNilaiJSON(jsonInput, "role");
-                    String nama = ambilNilaiJSON(jsonInput, "nama");
-                    String email = ambilNilaiJSON(jsonInput, "email");
-                    String noHp = ambilNilaiJSON(jsonInput, "no_hp");
+                    String role     = ambilNilaiJSON(jsonInput, "role");
+                    String nama     = ambilNilaiJSON(jsonInput, "nama");
+                    String email    = ambilNilaiJSON(jsonInput, "email");
+                    String noHp     = ambilNilaiJSON(jsonInput, "no_hp");
                     String password = ambilNilaiJSON(jsonInput, "password");
 
                     int newId = (int) (System.currentTimeMillis() % 100000);
@@ -68,16 +374,14 @@ public class BackendServer {
                         PreparedStatement pstmt = null;
 
                         if ("student".equals(role)) {
-                            String idJenjangStr = ambilNilaiJSON(jsonInput, "id_jenjang");
-                            int idJenjang = idJenjangStr.isEmpty() ? 1 : Integer.parseInt(idJenjangStr);
-                            String tglLahir = ambilNilaiJSON(jsonInput, "tanggal_lahir");
-                            if (tglLahir.isEmpty())
-                                tglLahir = "2000-01-01";
-                            String jenisKelamin = ambilNilaiJSON(jsonInput, "jenis_kelamin");
-                            if (jenisKelamin.isEmpty())
-                                jenisKelamin = "L";
+                            String idJenjangStr  = ambilNilaiJSON(jsonInput, "id_jenjang");
+                            int    idJenjang     = idJenjangStr.isEmpty() ? 1 : Integer.parseInt(idJenjangStr);
+                            String tglLahir      = ambilNilaiJSON(jsonInput, "tanggal_lahir");
+                            if (tglLahir.isEmpty()) tglLahir = "2000-01-01";
+                            String jenisKelamin  = ambilNilaiJSON(jsonInput, "jenis_kelamin");
+                            if (jenisKelamin.isEmpty()) jenisKelamin = "L";
 
-                            sql = "INSERT INTO Siswa (id_siswa, id_jenjang, nama, tgl_lahir, jenis_kelamin, no_hp, email, password) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+                            sql   = "INSERT INTO Siswa (id_siswa, id_jenjang, nama, tgl_lahir, jenis_kelamin, no_hp, email, password) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
                             pstmt = conn.prepareStatement(sql);
                             pstmt.setInt(1, newId);
                             pstmt.setInt(2, idJenjang);
@@ -90,8 +394,7 @@ public class BackendServer {
                                 } else if (tglLahir.contains("/")) {
                                     String[] parts = tglLahir.split("/");
                                     if (parts[2].length() == 4) {
-                                        String formattedDate = parts[2] + "-" + parts[1] + "-" + parts[0];
-                                        sqlDate = java.sql.Date.valueOf(formattedDate);
+                                        sqlDate = java.sql.Date.valueOf(parts[2] + "-" + parts[1] + "-" + parts[0]);
                                     }
                                 }
                             } catch (Exception dateEx) {
@@ -103,13 +406,11 @@ public class BackendServer {
                             pstmt.setString(6, noHp);
                             pstmt.setString(7, email);
                             pstmt.setString(8, password);
-
                             pstmt.executeUpdate();
                             pstmt.close();
 
                         } else if ("teacher".equals(role)) {
-                            // 1. Simpan data utama Guru
-                            sql = "INSERT INTO Guru (id_guru, nama, email, no_hp, password) VALUES (?, ?, ?, ?, ?)";
+                            sql   = "INSERT INTO Guru (id_guru, nama, email, no_hp, password) VALUES (?, ?, ?, ?, ?)";
                             pstmt = conn.prepareStatement(sql);
                             pstmt.setInt(1, newId);
                             pstmt.setString(2, nama);
@@ -119,28 +420,21 @@ public class BackendServer {
                             pstmt.executeUpdate();
                             pstmt.close();
 
-                            // 2. Simpan Multi-Keahlian Guru (Hasil gabungan dari React)
                             String expertisesStr = ambilNilaiJSON(jsonInput, "expertises");
                             if (!expertisesStr.isEmpty()) {
-                                String[] expArr = expertisesStr.split(",");
-                                String sqlKeahlian = "INSERT INTO Keahlian_Guru (id_keahlian, id_guru, id_mapel, id_jenjang) VALUES (?, ?, ?, ?)";
-
+                                String[] expArr      = expertisesStr.split(",");
+                                String   sqlKeahlian = "INSERT INTO Keahlian_Guru (id_keahlian, id_guru, id_mapel, id_jenjang) VALUES (?, ?, ?, ?)";
                                 try (PreparedStatement pstmtKeahlian = conn.prepareStatement(sqlKeahlian)) {
                                     int counter = 1;
                                     for (String exp : expArr) {
                                         String[] parts = exp.split("-");
                                         if (parts.length == 2) {
-                                            int idMapel = Integer.parseInt(parts[0]);
-                                            int idJenjang = Integer.parseInt(parts[1]);
-
-                                            // Tambahkan counter agar ID tidak bertabrakan saat looping super cepat
                                             int idKeahlian = (int) (System.currentTimeMillis() % 100000)
-                                                    + (int) (Math.random() * 50000) + counter;
-
+                                                           + (int) (Math.random() * 50000) + counter;
                                             pstmtKeahlian.setInt(1, idKeahlian);
                                             pstmtKeahlian.setInt(2, newId);
-                                            pstmtKeahlian.setInt(3, idMapel);
-                                            pstmtKeahlian.setInt(4, idJenjang);
+                                            pstmtKeahlian.setInt(3, Integer.parseInt(parts[0]));
+                                            pstmtKeahlian.setInt(4, Integer.parseInt(parts[1]));
                                             pstmtKeahlian.executeUpdate();
                                             counter++;
                                         }
@@ -149,8 +443,7 @@ public class BackendServer {
                             }
 
                         } else if ("admin".equals(role)) {
-                            // 1. Simpan data ke tabel Admin (Seperti biasa)
-                            sql = "INSERT INTO Admin (id_admin, nama, email, no_hp, password) VALUES (?, ?, ?, ?, ?)";
+                            sql   = "INSERT INTO Admin (id_admin, nama, email, no_hp, password) VALUES (?, ?, ?, ?, ?)";
                             pstmt = conn.prepareStatement(sql);
                             pstmt.setInt(1, newId);
                             pstmt.setString(2, nama);
@@ -160,17 +453,11 @@ public class BackendServer {
                             pstmt.executeUpdate();
                             pstmt.close();
 
-                            // 2. TAMBAHKAN KODE INI: Cek dan Update tabel Guru jika emailnya sama
                             String sqlUpdateGuru = "UPDATE Guru SET id_admin = ? WHERE email = ?";
                             try (PreparedStatement pstmtUpdateGuru = conn.prepareStatement(sqlUpdateGuru)) {
-                                pstmtUpdateGuru.setInt(1, newId); // newId ini adalah id_admin yang baru di-generate
+                                pstmtUpdateGuru.setInt(1, newId);
                                 pstmtUpdateGuru.setString(2, email);
-
-                                int barisTerupdate = pstmtUpdateGuru.executeUpdate();
-                                if (barisTerupdate > 0) {
-                                    System.out.println(
-                                            "Sistem menemukan email yang sama di tabel Guru. id_admin di tabel Guru berhasil di-update!");
-                                }
+                                pstmtUpdateGuru.executeUpdate();
                             }
                         } else {
                             throw new Exception("Role tidak dikenali: " + role);
@@ -189,9 +476,6 @@ public class BackendServer {
         }
     }
 
-    // ---------------------------------------------------------
-    // HANDLER 2: LOGIN AKUN (MENGEMBALIKAN ID USER)
-    // ---------------------------------------------------------
     static class LoginHandler implements HttpHandler {
         @Override
         public void handle(HttpExchange exchange) throws IOException {
@@ -205,16 +489,15 @@ public class BackendServer {
                 String jsonInput = bacaBody(exchange);
 
                 try {
-                    String email = ambilNilaiJSON(jsonInput, "email");
+                    String email    = ambilNilaiJSON(jsonInput, "email");
                     String password = ambilNilaiJSON(jsonInput, "password");
 
                     String roleDitemukan = "";
                     String namaDitemukan = "";
-                    int idDitemukan = 0;
+                    int    idDitemukan   = 0;
 
                     try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD)) {
 
-                        // 1. Cek di tabel Siswa
                         String sqlSiswa = "SELECT id_siswa, nama FROM Siswa WHERE email = ? AND password = ?";
                         try (PreparedStatement pstmt = conn.prepareStatement(sqlSiswa)) {
                             pstmt.setString(1, email);
@@ -223,11 +506,10 @@ public class BackendServer {
                             if (rs.next()) {
                                 roleDitemukan = "student";
                                 namaDitemukan = rs.getString("nama");
-                                idDitemukan = rs.getInt("id_siswa");
+                                idDitemukan   = rs.getInt("id_siswa");
                             }
                         }
 
-                        // 2. Jika bukan siswa, Cek di tabel Guru
                         if (roleDitemukan.isEmpty()) {
                             String sqlGuru = "SELECT id_guru, nama FROM Guru WHERE email = ? AND password = ?";
                             try (PreparedStatement pstmt = conn.prepareStatement(sqlGuru)) {
@@ -237,12 +519,11 @@ public class BackendServer {
                                 if (rs.next()) {
                                     roleDitemukan = "teacher";
                                     namaDitemukan = rs.getString("nama");
-                                    idDitemukan = rs.getInt("id_guru");
+                                    idDitemukan   = rs.getInt("id_guru");
                                 }
                             }
                         }
 
-                        // 3. Jika bukan guru, Cek di tabel Admin
                         if (roleDitemukan.isEmpty()) {
                             String sqlAdmin = "SELECT id_admin, nama FROM Admin WHERE email = ? AND password = ?";
                             try (PreparedStatement pstmt = conn.prepareStatement(sqlAdmin)) {
@@ -252,7 +533,7 @@ public class BackendServer {
                                 if (rs.next()) {
                                     roleDitemukan = "admin";
                                     namaDitemukan = rs.getString("nama");
-                                    idDitemukan = rs.getInt("id_admin");
+                                    idDitemukan   = rs.getInt("id_admin");
                                 }
                             }
                         }
@@ -277,9 +558,6 @@ public class BackendServer {
         }
     }
 
-    // ---------------------------------------------------------
-    // HANDLER 3: BOOKING LES (MENYIMPAN KE TABEL LES)
-    // ---------------------------------------------------------
     static class BookingHandler implements HttpHandler {
         @Override
         public void handle(HttpExchange exchange) throws IOException {
@@ -293,106 +571,79 @@ public class BackendServer {
                 String jsonInput = bacaBody(exchange);
 
                 try {
-                    int idSiswa = Integer.parseInt(ambilNilaiJSON(jsonInput, "id_siswa"));
+                    int idSiswa  = Integer.parseInt(ambilNilaiJSON(jsonInput, "id_siswa"));
                     int idJadwal = Integer.parseInt(ambilNilaiJSON(jsonInput, "id_jadwal"));
 
-                    // --- POTONG DAN TIMPA KODE PARSING TANGGAL DI SINI ---
-                    String tglMulaiRaw = ambilNilaiJSON(jsonInput, "tanggal_mulai");
+                    String tglMulaiRaw   = ambilNilaiJSON(jsonInput, "tanggal_mulai");
                     String tglSelesaiRaw = ambilNilaiJSON(jsonInput, "tanggal_selesai");
 
-                    java.sql.Timestamp tsMulai = null;
-                    java.sql.Timestamp tsSelesai = null;
+                    String tglMulaiStr   = tglMulaiRaw.contains("T") ? tglMulaiRaw.split("T")[0] : tglMulaiRaw;
+                    String tglSelesaiStr = tglSelesaiRaw.contains("T") ? tglSelesaiRaw.split("T")[0] : tglSelesaiRaw;
 
+                    java.sql.Date tglMulai;
+                    java.sql.Date tglSelesai;
                     try {
-                        // Cek dan format waktu mulai
-                        String tglMulaiStr = tglMulaiRaw.replace("T", " ");
-                        if (tglMulaiStr.split(":").length == 2) {
-                            tglMulaiStr += ":00";
-                        }
-
-                        // Cek dan format waktu selesai
-                        String tglSelesaiStr = tglSelesaiRaw.replace("T", " ");
-                        if (tglSelesaiStr.split(":").length == 2) {
-                            tglSelesaiStr += ":00";
-                        }
-
-                        tsMulai = java.sql.Timestamp.valueOf(tglMulaiStr);
-                        tsSelesai = java.sql.Timestamp.valueOf(tglSelesaiStr);
+                        tglMulai   = java.sql.Date.valueOf(tglMulaiStr);
+                        tglSelesai = java.sql.Date.valueOf(tglSelesaiStr);
                     } catch (Exception dateEx) {
-                        System.out.println("Gagal parsing tanggal: " + dateEx.getMessage());
-                        tsMulai = new java.sql.Timestamp(System.currentTimeMillis());
-                        tsSelesai = new java.sql.Timestamp(System.currentTimeMillis() + 3600000);
+                        tglMulai   = new java.sql.Date(System.currentTimeMillis());
+                        tglSelesai = new java.sql.Date(System.currentTimeMillis());
                     }
-                    // -----------------------------------------------------------------
 
-                    int newIdLes = (int) (System.currentTimeMillis() % 100000) + (int) (Math.random() * 50000);
+                    int newIdLes    = (int) (System.currentTimeMillis() % 100000) + (int) (Math.random() * 50000);
                     int newIdDetail = (int) (System.currentTimeMillis() % 100000) + (int) (Math.random() * 50000);
 
                     try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD)) {
 
-                        // 1. CEK APAKAH SLOT DI JADWAL TERSEDIA
-                        // 1. CEK BENTROK JADWAL BERDASARKAN TANGGAL SECARA DINAMIS
-                        String sqlCekJadwal = "SELECT COUNT(*) AS total_bentrok \r\n" +
-                                "FROM Les l \r\n" +
-                                "JOIN Detail_Daftar_Les ddl ON l.id_les = ddl.id_les \r\n" +
-                                "WHERE ddl.id_jadwal = ? \r\n" +
-                                "AND (l.tgl_mulai <= ? AND l.tgl_selesai >= ?)";
+                        String sqlCek =
+                            "SELECT COUNT(*) AS total_bentrok " +
+                            "FROM Les l " +
+                            "JOIN Detail_Daftar_Les ddl ON l.id_les = ddl.id_les " +
+                            "WHERE ddl.id_jadwal = ? " +
+                            "AND (l.tgl_mulai <= ? AND l.tgl_selesai >= ?)";
 
-                        try (PreparedStatement pstmtCek = conn.prepareStatement(sqlCekJadwal)) {
-                            // Memasukkan 3 parameter yang dibutuhkan oleh query (?)
+                        try (PreparedStatement pstmtCek = conn.prepareStatement(sqlCek)) {
                             pstmtCek.setInt(1, idJadwal);
-                            pstmtCek.setTimestamp(2, tsSelesai); // Batas akhir pendaftaran baru
-                            pstmtCek.setTimestamp(3, tsMulai); // Batas awal pendaftaran baru
-
+                            pstmtCek.setDate(2, tglSelesai);
+                            pstmtCek.setDate(3, tglMulai);
                             ResultSet rsJadwal = pstmtCek.executeQuery();
-                            if (rsJadwal.next()) {
-                                // Ambil hasil hitungan bentrok (berupa angka)
-                                int totalBentrok = rsJadwal.getInt("total_bentrok");
-
-                                // --- CCTV DATABASE BARU ---
-                                System.out.println("CCTV Database: id_jadwal = " + idJadwal
-                                        + " | Jumlah Bentrok Tanggal = " + totalBentrok);
-                                // --------------------------
-
-                                // Jika ada bentrok (totalBentrok > 0), berarti slot sudah 'terisi' pada tanggal
-                                // itu
-                                if (totalBentrok > 0) {
-                                    kirimResponJSON(exchange, 400,
-                                            "{\"status\":\"gagal\", \"pesan\":\"Slot jadwal ini sudah terisi pada rentang tanggal tersebut!\"}");
-                                    return;
-                                }
+                            if (rsJadwal.next() && rsJadwal.getInt("total_bentrok") > 0) {
+                                kirimResponJSON(exchange, 400,
+                                    "{\"status\":\"gagal\", \"pesan\":\"Slot jadwal ini sudah terisi pada rentang tanggal tersebut!\"}");
+                                return;
                             }
                         }
 
-                        // 2. JIKA AMAN, INSERT KE TABEL INDUK: Daftar_les
+                        // Insert tabel induk Les
                         String sqlInsertLes = "INSERT INTO Les (id_les, tgl_mulai, tgl_selesai, id_siswa) VALUES (?, ?, ?, ?)";
-                        // Cari bagian ini dan sesuaikan variabelnya:
                         try (PreparedStatement pstmtLes = conn.prepareStatement(sqlInsertLes)) {
                             pstmtLes.setInt(1, newIdLes);
-                            pstmtLes.setTimestamp(2, tsMulai); // <--- Ganti jadi tsMulai
-                            pstmtLes.setTimestamp(3, tsSelesai); // <--- Ganti jadi tsSelesai
+                            pstmtLes.setDate(2, tglMulai);
+                            pstmtLes.setDate(3, tglSelesai);
                             pstmtLes.setInt(4, idSiswa);
                             pstmtLes.executeUpdate();
                         }
 
-                        // 3. INSERT KE TABEL PENENGAH: Detail_Daftar_Les (Sesuaikan FK Mapel & Jenjang)
-                        // Mengambil id_mapel dan id_jenjang dari relasi keahlian jadwal tersebut secara
-                        // dinamis
-                        int idMapel = 1;
+                        // Ambil id_mapel dan id_jenjang dari keahlian guru di jadwal tersebut
+                        int idMapel   = 1;
                         int idJenjang = 1;
-                        String sqlGetMaster = "SELECT k.id_mapel, k.id_jenjang FROM Jadwal_Kesediaan_Guru j " +
-                                "JOIN Keahlian_Guru k ON j.id_guru = k.id_guru WHERE j.id_jadwal = ?";
+                        String sqlGetMaster =
+                            "SELECT k.id_mapel, k.id_jenjang " +
+                            "FROM Jadwal_Kesediaan_Guru j " +
+                            "JOIN Keahlian_Guru k ON j.id_guru = k.id_guru " +
+                            "WHERE j.id_jadwal = ?";
                         try (PreparedStatement pstmtMaster = conn.prepareStatement(sqlGetMaster)) {
                             pstmtMaster.setInt(1, idJadwal);
                             ResultSet rsM = pstmtMaster.executeQuery();
                             if (rsM.next()) {
-                                idMapel = rsM.getInt("id_mapel");
+                                idMapel   = rsM.getInt("id_mapel");
                                 idJenjang = rsM.getInt("id_jenjang");
                             }
                         }
 
-                        // Ganti id_jadwal menjadi idjadwal
-                        String sqlInsertDetail = "INSERT INTO Detail_Daftar_Les (id_detail, id_les, id_jadwal, id_mapel, id_jenjang) VALUES (?, ?, ?, ?, ?)";
+                        // Insert Detail_Daftar_Les
+                        String sqlInsertDetail =
+                            "INSERT INTO Detail_Daftar_Les (id_detail, id_les, id_jadwal, id_mapel, id_jenjang) VALUES (?, ?, ?, ?, ?)";
                         try (PreparedStatement pstmtDetail = conn.prepareStatement(sqlInsertDetail)) {
                             pstmtDetail.setInt(1, newIdDetail);
                             pstmtDetail.setInt(2, newIdLes);
@@ -401,7 +652,6 @@ public class BackendServer {
                             pstmtDetail.setInt(5, idJenjang);
                             pstmtDetail.executeUpdate();
                         }
-
                     }
 
                     kirimResponJSON(exchange, 200, "{\"status\":\"sukses\"}");
@@ -425,53 +675,51 @@ public class BackendServer {
 
             if ("GET".equalsIgnoreCase(exchange.getRequestMethod())) {
                 try {
-                    // Ambil id_siswa dari query string (contoh: /api/les/siswa?id_siswa=73210)
-                    String query = exchange.getRequestURI().getQuery();
+                    String query      = exchange.getRequestURI().getQuery();
                     String idSiswaStr = query.split("id_siswa=")[1].split("&")[0];
-                    int idSiswa = Integer.parseInt(idSiswaStr);
+                    int    idSiswa    = Integer.parseInt(idSiswaStr);
 
-                    String jsonResult = "[";
-                    // GANTI MENJADI SEPERTI INI (Tambahkan l.durasi):
-                    // Ganti ddl.id_jadwal menjadi ddl.idjadwal AS id_jadwal
-                    // 1. Perbaiki Query SQL (Tambahkan dl.durasi agar tidak error di baris
-                    // bawahnya)
-                    // Menghitung selisih bulan antara tgl_mulai dan tgl_selesai
-                    String sql = "SELECT dl.id_les, dl.id_siswa, dl.tgl_mulai, dl.tgl_selesai, " +
-                            "ddl.id_jadwal, ddl.id_mapel, ddl.id_jenjang, " +
-                            "j.hari, j.jam_mulai, j.jam_selesai " +
-                            "FROM Les dl " +
-                            "JOIN Detail_Daftar_Les ddl ON dl.id_les = ddl.id_les " +
-                            "JOIN Jadwal_Kesediaan_Guru j ON ddl.id_jadwal = j.id_jadwal " +
-                            "WHERE dl.id_siswa = ?";
+                    // tgl_mulai/selesai di Les adalah DATE, jam ada di Jadwal_Kesediaan_Guru
+                    String sql =
+                        "SELECT l.id_les, l.id_siswa, " +
+                        "CONVERT(varchar(10), l.tgl_mulai, 120) AS tgl_mulai, " +
+                        "CONVERT(varchar(10), l.tgl_selesai, 120) AS tgl_selesai, " +
+                        "ddl.id_jadwal, ddl.id_mapel, ddl.id_jenjang, " +
+                        "j.hari, " +
+                        "CONVERT(varchar(5), j.jam_mulai, 108) AS jam_mulai, " +
+                        "CONVERT(varchar(5), j.jam_selesai, 108) AS jam_selesai " +
+                        "FROM Les l " +
+                        "JOIN Detail_Daftar_Les ddl ON l.id_les = ddl.id_les " +
+                        "JOIN Jadwal_Kesediaan_Guru j ON ddl.id_jadwal = j.id_jadwal " +
+                        "WHERE l.id_siswa = ?";
 
+                    StringBuilder jsonResult = new StringBuilder("[");
                     try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD);
-                            PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                         PreparedStatement pstmt = conn.prepareStatement(sql)) {
                         pstmt.setInt(1, idSiswa);
                         ResultSet rs = pstmt.executeQuery();
                         boolean first = true;
                         while (rs.next()) {
-                            if (!first)
-                                jsonResult += ",";
-
-                            // 2. Sesuaikan nama di dalam rs.getString() menjadi tgl_mulai dan tgl_selesai
-                            jsonResult += "{" +
-                                    "\"id\":" + rs.getInt("id_les") + "," +
-                                    "\"id_siswa\":" + rs.getInt("id_siswa") + "," +
-                                    "\"id_jadwal\":" + rs.getInt("id_jadwal") + "," +
-                                    "\"id_mapel\":" + rs.getInt("id_mapel") + "," +
-                                    "\"id_jenjang\":" + rs.getInt("id_jenjang") + "," +
-                                    "\"hari\":\"" + rs.getString("hari") + "\"," +
-                                    "\"jam_mulai\":\"" + rs.getString("jam_mulai") + "\"," +
-                                    "\"jam_selesai\":\"" + rs.getString("jam_selesai") + "\"," +
-                                    "\"tanggal_mulai\":\"" + rs.getString("tgl_mulai").replace(" ", "T") + "\"," +
-                                    "\"tanggal_selesai\":\"" + rs.getString("tgl_selesai").replace(" ", "T") + "\"" +
-                                    "}";
+                            if (!first) jsonResult.append(",");
+                            jsonResult.append("{")
+                                .append("\"id\":").append(rs.getInt("id_les")).append(",")
+                                .append("\"id_siswa\":").append(rs.getInt("id_siswa")).append(",")
+                                .append("\"id_jadwal\":").append(rs.getInt("id_jadwal")).append(",")
+                                .append("\"id_mapel\":").append(rs.getInt("id_mapel")).append(",")
+                                .append("\"id_jenjang\":").append(rs.getInt("id_jenjang")).append(",")
+                                .append("\"hari\":\"").append(escapeJson(rs.getString("hari"))).append("\",")
+                                .append("\"jam_mulai\":\"").append(rs.getString("jam_mulai")).append("\",")
+                                .append("\"jam_selesai\":\"").append(rs.getString("jam_selesai")).append("\",")
+                                // Format jadi ISO string supaya frontend bisa parse
+                                .append("\"tanggal_mulai\":\"").append(rs.getString("tgl_mulai")).append("T").append(rs.getString("jam_mulai")).append("\",")
+                                .append("\"tanggal_selesai\":\"").append(rs.getString("tgl_selesai")).append("T").append(rs.getString("jam_selesai")).append("\"")
+                                .append("}");
                             first = false;
                         }
                     }
-                    jsonResult += "]";
+                    jsonResult.append("]");
+                    kirimResponJSON(exchange, 200, jsonResult.toString());
 
-                    kirimResponJSON(exchange, 200, jsonResult);
                 } catch (Exception e) {
                     e.printStackTrace();
                     kirimResponJSON(exchange, 500, "[]");
@@ -480,28 +728,23 @@ public class BackendServer {
         }
     }
 
-    // ---------------------------------------------------------
-    // FUNGSI BANTUAN (UTILITIES)
-    // ---------------------------------------------------------
-
     private static void aturCORS(HttpExchange exchange) {
-        exchange.getResponseHeaders().set("Access-Control-Allow-Origin", "*");
+        exchange.getResponseHeaders().set("Access-Control-Allow-Origin",  "*");
         exchange.getResponseHeaders().set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, DELETE");
         exchange.getResponseHeaders().set("Access-Control-Allow-Headers", "Content-Type");
     }
 
     private static String bacaBody(HttpExchange exchange) throws IOException {
         InputStreamReader isr = new InputStreamReader(exchange.getRequestBody(), "utf-8");
-        BufferedReader br = new BufferedReader(isr);
+        BufferedReader br     = new BufferedReader(isr);
         return br.lines().collect(Collectors.joining());
     }
 
     private static String ambilNilaiJSON(String json, String key) {
         try {
-            String target = "\"" + key + "\":";
-            int index = json.indexOf(target);
-            if (index == -1)
-                return "";
+            String target    = "\"" + key + "\":";
+            int    index     = json.indexOf(target);
+            if (index == -1) return "";
 
             String remainder = json.substring(index + target.length()).trim();
             if (remainder.startsWith("\"")) {
@@ -509,9 +752,8 @@ public class BackendServer {
             } else {
                 int endDoc = remainder.indexOf(",");
                 int endObj = remainder.indexOf("}");
-                int end = (endDoc != -1 && endDoc < endObj) ? endDoc : endObj;
-                if (end == -1)
-                    end = remainder.length();
+                int end    = (endDoc != -1 && endDoc < endObj) ? endDoc : endObj;
+                if (end == -1) end = remainder.length();
                 return remainder.substring(0, end).trim();
             }
         } catch (Exception e) {
@@ -521,10 +763,23 @@ public class BackendServer {
 
     private static void kirimResponJSON(HttpExchange exchange, int statusCode, String response) throws IOException {
         exchange.getResponseHeaders().set("Content-Type", "application/json");
-        exchange.sendResponseHeaders(statusCode, response.length());
+        byte[] bytes = response.getBytes("utf-8");
+        exchange.sendResponseHeaders(statusCode, bytes.length);
         OutputStream os = exchange.getResponseBody();
-        os.write(response.getBytes());
+        os.write(bytes);
         os.close();
     }
-}
 
+    private static String escapeJson(String s) {
+        if (s == null) return "";
+        return s.replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("\n", "\\n")
+                .replace("\r", "\\r")
+                .replace("\t", "\\t");
+    }
+
+    private static String nullSafe(String s) {
+        return s == null ? "" : s;
+    }
+}
