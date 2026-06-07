@@ -565,7 +565,6 @@ const NAV: Record<
     { icon: GraduationCap, label: "Students", page: "students" },
     { icon: UserCheck, label: "Teachers", page: "teachers" },
     { icon: Shield, label: "Admins", page: "admins" },
-    { icon: BookMarked, label: "Lessons", page: "lessons" },
     { icon: Calendar, label: "Manage Schedules", page: "schedules" },
   ],
 };
@@ -712,7 +711,21 @@ function BookLesson({ loggedInId, setActiveLessons, db }: any) {
   const [selSlots, setSelSlots] = useState<JadwalKesediaan[]>([]);
   const [selPickedDays, setSelPickedDays] = useState<string[]>([]);
 
-  // Menggunakan db.keahlian dan db.guru dari database
+  // 1. TAMBAHKAN STATE BARU UNTUK JADWAL
+  const [localJadwal, setLocalJadwal] = useState<JadwalKesediaan[]>(db?.jadwal || []);
+
+  // 2. FETCH DATA LALU SIMPAN KE STATE localJadwal
+  useEffect(() => {
+    fetch(`http://localhost:8080/api/jadwal?t=${new Date().getTime()}`)
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          setLocalJadwal(data); // <--- SIMPAN DATANYA DI SINI
+        }
+      })
+      .catch(err => console.error("Gagal load jadwal:", err));
+  }, []);
+
   const filteredGuru = useMemo(() => {
     if (!selJenjang || !selMapel) return [];
     const validGuruIds = db.keahlian.filter(
@@ -722,13 +735,13 @@ function BookLesson({ loggedInId, setActiveLessons, db }: any) {
     return db.guru.filter((g: any) => validGuruIds.includes(g.id));
   }, [selJenjang, selMapel, db]);
 
-  // FIX: Diberi tipe eksplisit <JadwalKesediaan[]> agar TypeScript tidak merah
+  // 3. GUNAKAN localJadwal SEBAGAI FILTER, BUKAN db.jadwal
   const guruJadwal = useMemo<JadwalKesediaan[]>(() => {
     if (selGurus.length === 0) return [];
-    return db.jadwal.filter(
+    return localJadwal.filter( // <--- PERUBAHAN UTAMANYA DI SINI
       (j: JadwalKesediaan) => selGurus.includes(j.id_guru) && j.status === "tersedia",
     );
-  }, [selGurus, db]);
+  }, [selGurus, localJadwal]); 
 
   const availableDays = useMemo(
     () => [...new Set(guruJadwal.map((j) => j.hari))],
@@ -1493,7 +1506,7 @@ function TeacherSchedule({ loggedInId, db }: any) {
     };
   });
 
- // Mengecek kesamaan HARI dan rentang masa kontrak
+  // Mengecek kesamaan HARI dan rentang masa kontrak
   function getLessonsForDay(date: Date, hari: string) {
     return teacherLessons.filter((l) => {
       // 1. Cek apakah jadwalnya memiliki hari yang sama dengan kotak kalender ini (misal: "Monday")
@@ -1703,162 +1716,650 @@ function TeacherSchedule({ loggedInId, db }: any) {
 // ─── Admin: Generic Data Table ────────────────────────────────────────────
 type DrawerMode = "add" | "edit" | null;
 
-function AdminStudents({ search }: { search: string }) {
-  const [data, setData] = useState<any[]>([]);
-  useEffect(() => {
-    fetch("http://localhost:8080/api/admin/students").then(res => res.json()).then(setData);
-  }, []);
-  const filtered = data.filter(i => i.nama.toLowerCase().includes(search.toLowerCase()) || i.email.toLowerCase().includes(search.toLowerCase()));
-
-  return (
-    <div className="p-6 bg-white rounded-xl shadow-sm m-6 border border-gray-100">
-      <h2 className="text-xl font-bold text-gray-800 mb-4">Daftar Siswa terdaftar</h2>
-      <table className="w-full text-left border-collapse">
-        <thead>
-          <tr className="border-b border-gray-200 text-gray-500 text-sm"><th className="pb-3">ID</th><th className="pb-3">Nama</th><th className="pb-3">Email</th><th className="pb-3">No. HP</th></tr>
-        </thead>
-        <tbody className="text-gray-700 text-sm">
-          {filtered.map(s => <tr key={s.id} className="border-b border-gray-100"><td className="py-3">{s.id}</td><td className="py-3 font-medium">{s.nama}</td><td className="py-3">{s.email}</td><td className="py-3">{s.no_hp}</td></tr>)}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function AdminTeachers({ search }: { search: string }) {
-  const [data, setData] = useState<any[]>([]);
-  useEffect(() => {
-    fetch("http://localhost:8080/api/admin/teachers").then(res => res.json()).then(setData);
-  }, []);
-  const filtered = data.filter(i => i.nama.toLowerCase().includes(search.toLowerCase()));
-
-  return (
-    <div className="p-6 bg-white rounded-xl shadow-sm m-6 border border-gray-100">
-      <h2 className="text-xl font-bold text-gray-800 mb-4">Daftar Guru / Pengajar</h2>
-      <table className="w-full text-left border-collapse">
-        <thead>
-          <tr className="border-b border-gray-200 text-gray-500 text-sm"><th className="pb-3">ID</th><th className="pb-3">Nama</th><th className="pb-3">Email</th><th className="pb-3">No. HP</th></tr>
-        </thead>
-        <tbody className="text-gray-700 text-sm">
-          {filtered.map(t => <tr key={t.id} className="border-b border-gray-100"><td className="py-3">{t.id}</td><td className="py-3 font-medium">{t.nama}</td><td className="py-3">{t.email}</td><td className="py-3">{t.no_hp}</td></tr>)}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function AdminAdmins({ search }: { search: string }) {
-  const [data, setData] = useState<any[]>([]);
-  useEffect(() => {
-    fetch("http://localhost:8080/api/admin/admins").then(res => res.json()).then(setData);
-  }, []);
-  const filtered = data.filter(i => i.nama.toLowerCase().includes(search.toLowerCase()));
-
-  return (
-    <div className="p-6 bg-white rounded-xl shadow-sm m-6 border border-gray-100">
-      <h2 className="text-xl font-bold text-gray-800 mb-4">Daftar Administrator System</h2>
-      <table className="w-full text-left border-collapse">
-        <thead>
-          <tr className="border-b border-gray-200 text-gray-500 text-sm"><th className="pb-3">ID</th><th className="pb-3">Nama</th><th className="pb-3">Email</th><th className="pb-3">No. HP</th></tr>
-        </thead>
-        <tbody className="text-gray-700 text-sm">
-          {filtered.map(a => <tr key={a.id} className="border-b border-gray-100"><td className="py-3">{a.id}</td><td className="py-3 font-medium">{a.nama}</td><td className="py-3">{a.email}</td><td className="py-3">{a.no_hp}</td></tr>)}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function AdminManageSchedule({ search }: { search: string }) {
-  const [schedules, setSchedules] = useState<any[]>([]);
-  const [options, setOptions] = useState<{ mapel: any[]; jenjang: any[]; jadwal_guru: any[] }>({ mapel: [], jenjang: [], jadwal_guru: [] });
-  const [editingItem, setEditingItem] = useState<any | null>(null);
+function AdminStudents({ search, db }: any) {
+  const [drawer, setDrawer] = useState<any>(null);
+  const [editItem, setEditItem] = useState<any>(null);
+  const [students, setStudents] = useState<any[]>([]);
+  const [form, setForm] = useState<any>({});
 
   const loadData = () => {
-    fetch("http://localhost:8080/api/admin/schedules").then(res => res.json()).then(setSchedules);
-    fetch("http://localhost:8080/api/admin/options").then(res => res.json()).then(setOptions);
+    // Kita panggil /api/siswa supaya data tanggal lahir & jenjang ikut terbaca dari SQL
+    fetch("http://localhost:8080/api/siswa")
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data)) setStudents(data);
+      })
+      .catch((err) => console.error("Gagal memuat siswa:", err));
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const filtered = students.filter((s) =>
+    [s.nama, s.email, s.no_hp]
+      .join(" ")
+      .toLowerCase()
+      .includes((search || "").toLowerCase())
+  );
+
+  function openAdd() {
+    setForm({
+      nama: "", email: "", no_hp: "", tanggal_lahir: "", jenis_kelamin: "", id_jenjang: ""
+    });
+    setEditItem(null);
+    setDrawer("add");
+  }
+
+  function openEdit(item: any) {
+    setForm({
+      id_detail: item.id_detail,
+      id_jadwal: item.id_jadwal,
+      id_mapel: item.id_mapel,
+      id_jenjang: item.id_jenjang,
+      nama_siswa: item.nama_siswa,
+      hari: item.hari,
+      jam_mulai: item.jam_mulai,
+      jam_selesai: item.jam_selesai,
+    });
+    setDrawer("edit");
+  }
+
+  function handleDelete(id: number) {
+    if (!window.confirm("Apakah Anda yakin ingin menghapus Siswa ini?")) return;
+
+    fetch("http://localhost:8080/api/admin/students/delete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id_siswa: id }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        alert(data.message || data.pesan);
+        if (data.status === "sukses") loadData();
+      })
+      .catch(() => alert("Gagal menghubungi server."));
+  }
+
+  function handleSave() {
+    if (drawer === "add") {
+      fetch("http://localhost:8080/api/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          role: "student",
+          nama: form.nama,
+          email: form.email,
+          no_hp: form.no_hp,
+          password: "student123", // Password default awal
+          tanggal_lahir: form.tanggal_lahir,
+          jenis_kelamin: form.jenis_kelamin,
+          id_jenjang: form.id_jenjang,
+        }),
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.status === "sukses") {
+            alert("Siswa berhasil ditambahkan ke Database!");
+            loadData();
+          } else {
+            alert("Gagal menambahkan siswa: " + data.pesan);
+          }
+        })
+        .catch(() => alert("Gagal menghubungi server."));
+
+    } else if (drawer === "edit") {
+      fetch("http://localhost:8080/api/admin/students/update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id_siswa: editItem.id,
+          nama: form.nama,
+          email: form.email,
+          no_hp: form.no_hp,
+          tanggal_lahir: form.tanggal_lahir,
+          jenis_kelamin: form.jenis_kelamin,
+          id_jenjang: form.id_jenjang,
+        }),
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.status === "sukses") {
+            alert("Data Siswa berhasil diperbarui!");
+            loadData();
+          } else {
+            alert("Gagal update siswa: " + data.message);
+          }
+        })
+        .catch(() => alert("Gagal menghubungi server."));
+    }
+    setDrawer(null);
+  }
+
+  return (
+    <div className="space-y-5 relative p-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-bold text-slate-800">Students</h1>
+          <p className="text-sm text-slate-500 mt-0.5">Manage all registered students.</p>
+        </div>
+        <Button onClick={openAdd} icon={<Plus size={15} />}>Add Student</Button>
+      </div>
+
+      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+        <div className="px-5 py-3 border-b border-slate-100 bg-slate-50">
+          <p className="text-sm text-slate-500 font-medium">{filtered.length} students found</p>
+        </div>
+        <table className="w-full text-sm text-left">
+          <thead>
+            <tr className="border-b border-slate-200 text-slate-500 uppercase text-xs">
+              <th className="px-5 py-3 font-semibold">Name</th>
+              <th className="px-5 py-3 font-semibold">Email</th>
+              <th className="px-5 py-3 font-semibold">Phone</th>
+              <th className="px-5 py-3 font-semibold">Level</th>
+              <th className="px-5 py-3 font-semibold">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {filtered.map((s) => {
+              // PERBAIKAN: Gunakan String() agar id berupa angka maupun teks tetap cocok dengan database
+              const jenjang = (db?.jenjang || []).find((j: any) => String(j.id) === String(s.id_jenjang));
+              return (
+                <tr key={s.id} className="hover:bg-slate-50 transition-colors group">
+                  <td className="px-5 py-3.5 flex items-center gap-3">
+                    <Avatar name={s.nama || "?"} size="sm" />
+                    <span className="font-medium text-slate-800">{s.nama}</span>
+                  </td>
+                  <td className="px-5 py-3.5 text-slate-600">{s.email}</td>
+                  <td className="px-5 py-3.5 text-slate-600">{s.no_hp}</td>
+                  <td className="px-5 py-3.5">
+                    <Badge label={jenjang?.nama || "Unknown"} variant="default" />
+                  </td>
+                  <td className="px-5 py-3.5">
+                    <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button onClick={() => openEdit(s)} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-lg transition-all"><Edit2 size={14} /></button>
+                      <button onClick={() => handleDelete(s.id)} className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-all"><Trash2 size={14} /></button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {drawer && (
+        <>
+          <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-30" onClick={() => setDrawer(null)} />
+          <div className="fixed top-0 right-0 h-full w-96 bg-white shadow-2xl z-40 flex flex-col animate-in slide-in-from-right-8 duration-200">
+            <div className="px-6 py-5 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+              <h2 className="text-base font-bold text-slate-800">{drawer === "add" ? "Add New Student" : "Edit Student"}</h2>
+              <button onClick={() => setDrawer(null)} className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-lg"><X size={16} /></button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-6 py-6 space-y-4">
+              <Input label="Full Name" value={form.nama ?? ""} onChange={(v: string) => setForm((p: any) => ({ ...p, nama: v }))} required />
+              <Input label="Email" type="email" value={form.email ?? ""} onChange={(v: string) => setForm((p: any) => ({ ...p, email: v }))} required />
+              <Input label="Phone Number" value={form.no_hp ?? ""} onChange={(v: string) => setForm((p: any) => ({ ...p, no_hp: v }))} required />
+
+              <div className="grid grid-cols-2 gap-3 pt-2">
+                <Input label="Date of Birth" type="date" value={form.tanggal_lahir ?? ""} onChange={(v: string) => setForm((p: any) => ({ ...p, tanggal_lahir: v }))} required />
+                <Select
+                  label="Gender"
+                  value={form.jenis_kelamin ?? ""}
+                  onChange={(v: string) => setForm((p: any) => ({ ...p, jenis_kelamin: v }))}
+                  options={[{ value: "L", label: "Male" }, { value: "P", label: "Female" }]}
+                  placeholder="Select"
+                  required
+                />
+              </div>
+
+              <div className="pt-2">
+                <Select
+                  label="Education Level"
+                  value={String(form.id_jenjang ?? "")}
+                  onChange={(v: string) => setForm((p: any) => ({ ...p, id_jenjang: v }))}
+                  options={(db?.jenjang || []).map((j: any) => ({ value: String(j.id), label: j.nama }))}
+                  placeholder="Select educational level"
+                  required
+                />
+              </div>
+
+            </div>
+            <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex gap-3">
+              <Button variant="secondary" onClick={() => setDrawer(null)} className="flex-1 justify-center">Cancel</Button>
+              <Button onClick={handleSave} className="flex-1 justify-center">{drawer === "add" ? "Add Student" : "Save Changes"}</Button>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function AdminTeachers({ search, db }: any) {
+  const [drawer, setDrawer] = useState<any>(null);
+  const [editItem, setEditItem] = useState<any>(null);
+  const [teachers, setTeachers] = useState<any[]>([]);
+  const [form, setForm] = useState<any>({});
+
+  // STATE BARU: Untuk menyimpan data keahlian terbaru tanpa perlu refresh layar
+  const [localKeahlian, setLocalKeahlian] = useState<any[]>([]);
+
+  // STATE UNTUK MULTI-KEAHLIAN
+  const [expertises, setExpertises] = useState<{ mapel: string; jenjang: string }[]>([]);
+  const [tempMapel, setTempMapel] = useState("");
+  const [tempJenjang, setTempJenjang] = useState("");
+
+  // FUNGSI LOAD DATA: Mengambil data guru & keahlian diam-diam dari Backend
+  const loadData = () => {
+    fetch("http://localhost:8080/api/admin/teachers")
+      .then((res) => res.json())
+      .then((data) => { if (Array.isArray(data)) setTeachers(data); })
+      .catch((err) => console.error("Gagal memuat guru:", err));
+
+    fetch("http://localhost:8080/api/keahlian")
+      .then((res) => res.json())
+      .then((data) => { if (Array.isArray(data)) setLocalKeahlian(data); })
+      .catch((err) => console.error("Gagal memuat keahlian:", err));
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  // Gabungkan keahlian dari DB Global (saat pertama load) dengan DB Lokal (saat setelah add/delete)
+  const currentKeahlian = localKeahlian.length > 0 ? localKeahlian : (db?.keahlian || []);
+
+  const filtered = teachers.filter((t) =>
+    [t.nama, t.email, t.no_hp]
+      .join(" ")
+      .toLowerCase()
+      .includes((search || "").toLowerCase())
+  );
+
+  function openAdd() {
+    setForm({});
+    setExpertises([]);
+    setTempMapel("");
+    setTempJenjang("");
+    setEditItem(null);
+    setDrawer("add");
+  }
+
+  function openEdit(g: any) {
+    setForm(g);
+
+    // Tarik data keahlian guru yang lama agar langsung muncul di form edit
+    const guruKeahlianLama = currentKeahlian
+      .filter((k: any) => k.id_guru === g.id)
+      .map((k: any) => ({
+        mapel: String(k.id_mapel),
+        jenjang: String(k.id_jenjang)
+      }));
+
+    setExpertises(guruKeahlianLama);
+    setTempMapel("");
+    setTempJenjang("");
+    setEditItem(g);
+    setDrawer("edit");
+  }
+
+  function addExpertise() {
+    if (tempMapel && tempJenjang) {
+      if (!expertises.some((e) => e.mapel === tempMapel && e.jenjang === tempJenjang)) {
+        setExpertises((prev) => [...prev, { mapel: tempMapel, jenjang: tempJenjang }]);
+      }
+      setTempMapel("");
+      setTempJenjang("");
+    }
+  }
+
+  function handleDelete(id: number) {
+    if (!window.confirm("Apakah Anda yakin ingin menghapus Guru ini?")) return;
+
+    fetch("http://localhost:8080/api/admin/teachers/delete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id_guru: id }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        alert(data.message || data.pesan);
+        loadData(); // Memperbarui tabel tanpa merefresh halaman/logout
+      })
+      .catch(() => alert("Gagal menghubungi server."));
+  }
+
+  function handleSave() {
+    // Siapkan data keahlian
+    let finalExp = [...expertises];
+    if (tempMapel && tempJenjang) {
+      if (!finalExp.some((exp) => exp.mapel === tempMapel && exp.jenjang === tempJenjang)) {
+        finalExp.push({ mapel: tempMapel, jenjang: tempJenjang });
+      }
+    }
+    const expertiseStr = finalExp.map((exp) => `${exp.mapel}-${exp.jenjang}`).join(",");
+
+    if (drawer === "add") {
+      fetch("http://localhost:8080/api/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          role: "teacher",
+          nama: form.nama,
+          email: form.email,
+          no_hp: form.no_hp,
+          password: "teacher123", // Password bawaan
+          expertises: expertiseStr,
+        }),
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.status === "sukses") {
+            alert("Guru berhasil ditambahkan ke Database beserta Keahliannya!");
+            loadData();
+          } else {
+            alert("Gagal menambahkan guru: " + data.pesan);
+          }
+        })
+        .catch(() => alert("Gagal menghubungi server."));
+
+    } else if (drawer === "edit") {
+      // BAGIAN BARU: Fungsi Edit dikirim ke API Update Java
+      fetch("http://localhost:8080/api/admin/teachers/update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id_guru: editItem.id,
+          nama: form.nama,
+          email: form.email,
+          no_hp: form.no_hp,
+          expertises: expertiseStr,
+        }),
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.status === "sukses") {
+            alert("Data Guru berhasil diperbarui!");
+            loadData(); // Langsung perbarui tabel di layar
+          } else {
+            alert("Gagal update guru: " + data.message);
+          }
+        })
+        .catch(() => alert("Gagal menghubungi server."));
+    }
+    setDrawer(null);
+  }
+
+  return (
+    <div className="space-y-5 relative">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-bold text-slate-800">Teachers</h1>
+          <p className="text-sm text-slate-500 mt-0.5">
+            Manage all registered tutors and their expertise.
+          </p>
+        </div>
+        <Button onClick={openAdd} icon={<Plus size={15} />}>
+          Add Teacher
+        </Button>
+      </div>
+      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+        <div className="px-5 py-3 border-b border-slate-100">
+          <p className="text-sm text-slate-500">{filtered.length} teachers</p>
+        </div>
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="bg-slate-50 border-b border-slate-100">
+              {["Name", "Email", "Phone", "Expertise", "Actions"].map((h) => (
+                <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map((g) => {
+              // MENGGUNAKAN currentKeahlian AGAR LANGSUNG UPDATE SAAT DITAMBAH/DIHAPUS
+              const guruExpertise = currentKeahlian
+                .filter((k: any) => k.id_guru === g.id)
+                .map((k: any) => {
+                  const mp = (db?.mapel || []).find((m: any) => m.id === k.id_mapel);
+                  const jj = (db?.jenjang || []).find((j: any) => j.id === k.id_jenjang);
+                  return `${mp?.nama || "Unknown"} (${jj?.nama || "?"})`;
+                });
+
+              return (
+                <tr key={g.id} className="border-b border-slate-50 hover:bg-slate-50/80 transition-colors group">
+                  <td className="px-5 py-3.5">
+                    <div className="flex items-center gap-2.5">
+                      <Avatar name={g.nama || "?"} size="sm" />
+                      <span className="font-medium text-slate-800">{g.nama}</span>
+                    </div>
+                  </td>
+                  <td className="px-5 py-3.5 text-slate-600">{g.email}</td>
+                  <td className="px-5 py-3.5 text-slate-600">{g.no_hp}</td>
+                  <td className="px-5 py-3.5">
+                    <div className="flex gap-1 flex-wrap">
+                      {guruExpertise.length > 0 ? (
+                        guruExpertise.map((e: string, i: number) => (
+                          <Badge key={i} label={e} variant="info" />
+                        ))
+                      ) : (
+                        <span className="text-xs text-slate-400 italic">No expertise set</span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-5 py-3.5">
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button onClick={() => openEdit(g)} className="p-1.5 text-slate-400 hover:text-[#4361EE] hover:bg-indigo-50 rounded-lg transition-all">
+                        <Edit2 size={13} />
+                      </button>
+                      <button onClick={() => handleDelete(g.id)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all">
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      {drawer && (
+        <>
+          <div className="fixed inset-0 bg-black/25 z-30" onClick={() => setDrawer(null)} />
+          <div className="fixed top-0 right-0 h-full w-96 bg-white shadow-2xl z-40 flex flex-col">
+            <div className="px-6 py-5 border-b border-slate-200 flex items-center justify-between">
+              <h2 className="text-base font-bold text-slate-800">
+                {drawer === "add" ? "Add New Teacher" : "Edit Teacher"}
+              </h2>
+              <button onClick={() => setDrawer(null)} className="p-1.5 hover:bg-slate-100 rounded-lg">
+                <X size={16} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+              <Input label="Full Name" value={form.nama ?? ""} onChange={(v: string) => setForm((p: any) => ({ ...p, nama: v }))} required />
+              <Input label="Email" type="email" value={form.email ?? ""} onChange={(v: string) => setForm((p: any) => ({ ...p, email: v }))} required />
+              <Input label="Phone Number" value={form.no_hp ?? ""} onChange={(v: string) => setForm((p: any) => ({ ...p, no_hp: v }))} required />
+
+              <div className="pt-2 border-t border-slate-100">
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Expertise (Bisa Tambah &gt; 1)</p>
+                <div className="space-y-3">
+                  <div className="flex gap-2 items-end">
+                    <div className="flex-1">
+                      <Select
+                        label="Subject"
+                        value={tempMapel}
+                        onChange={setTempMapel}
+                        options={(db?.mapel || []).map((m: any) => ({ value: String(m.id), label: m.nama }))}
+                        placeholder="Select subject"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <Select
+                        label="Education Level"
+                        value={tempJenjang}
+                        onChange={setTempJenjang}
+                        options={(db?.jenjang || []).map((j: any) => ({ value: String(j.id), label: j.nama }))}
+                        placeholder="Select level"
+                      />
+                    </div>
+                    <Button type="button" onClick={addExpertise} size="md" className="mb-0.5" variant="primary"><Plus size={16} /></Button>
+                  </div>
+
+                  {expertises.length > 0 && (
+                    <div className="flex flex-wrap gap-2 p-3 bg-slate-50 rounded-lg border border-slate-100">
+                      {expertises.map((e, idx) => {
+                        const mName = (db?.mapel || []).find((m: any) => String(m.id) === e.mapel)?.nama;
+                        const jName = (db?.jenjang || []).find((j: any) => String(j.id) === e.jenjang)?.nama;
+                        return (
+                          <span key={idx} className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white border border-slate-200 rounded-md text-xs font-medium text-slate-600 shadow-sm">
+                            {mName} ({jName})
+                            <button type="button" onClick={() => setExpertises(expertises.filter((_, i) => i !== idx))} className="text-red-400 hover:text-red-600"><X size={12} /></button>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+            </div>
+            <div className="px-6 py-4 border-t border-slate-200 flex gap-3">
+              <Button variant="secondary" onClick={() => setDrawer(null)} className="flex-1 justify-center">Cancel</Button>
+              <Button onClick={handleSave} className="flex-1 justify-center">
+                {drawer === "add" ? "Add Teacher" : "Save Changes"}
+              </Button>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function AdminManageSchedule({ search, db }: any) {
+  const [drawer, setDrawer] = useState<"add" | "edit" | null>(null);
+  const [slots, setSlots] = useState<any[]>([]);
+  const [form, setForm] = useState<any>({});
+  const [loading, setLoading] = useState(false);
+
+  // LOAD DATA DENGAN CATCH ERROR
+  const loadData = () => {
+    setLoading(true);
+    fetch("http://localhost:8080/api/admin/slots")
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) setSlots(data);
+        else setSlots([]); // Pencegah crash (filter is not a function)
+      })
+      .catch(err => {
+        console.error("Backend offline:", err);
+        alert("Gagal terhubung ke Backend Java. Pastikan server sudah jalan.");
+      })
+      .finally(() => setLoading(false));
   };
 
   useEffect(() => { loadData(); }, []);
 
-  const handleUpdate = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingItem) return;
+  // Filter aman tanpa crash
+  const filtered = Array.isArray(slots) ? slots.filter(s =>
+    (s.nama_guru || "").toLowerCase().includes((search || "").toLowerCase()) ||
+    (s.hari || "").toLowerCase().includes((search || "").toLowerCase())
+  ) : [];
 
-    fetch("http://localhost:8080/api/admin/schedules/update", {
+  // FUNGSI SIMPAN (ADD & EDIT)
+  const handleSave = () => {
+    if (!form.hari || !form.jam_mulai || !form.jam_selesai || (drawer === "add" && !form.id_guru)) {
+      alert("Mohon lengkapi semua data!");
+      return;
+    }
+
+    const url = drawer === "add" ? "http://localhost:8080/api/jadwal/add" : "http://localhost:8080/api/admin/slots/update";
+
+    // Data yang dikirim (tambahkan id dummy saat Add agar terbaca di PostJadwalHandler lama)
+    const payload = {
+      ...form,
+      id: drawer === "add" ? Math.floor(Math.random() * 100000) : undefined
+    };
+
+    fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        id_detail: editingItem.id_detail,
-        id_jadwal: editingItem.id_jadwal,
-        id_mapel: editingItem.id_mapel,
-        id_jenjang: editingItem.id_jenjang
+      body: JSON.stringify(payload)
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data.status === "sukses" || data.message) {
+          alert(data.message || "Berhasil menyimpan slot!");
+          setDrawer(null);
+          loadData();
+        } else {
+          alert("Gagal: " + (data.pesan || data.error));
+        }
       })
-    })
-    .then(res => res.json())
-    .then(data => {
-      alert(data.message || "Berhasil diperbarui");
-      setEditingItem(null);
-      loadData();
-    });
+      .catch(() => alert("Gagal terhubung ke Backend Java!"));
   };
 
-  const handleDelete = (id_detail: number) => {
-    if (!confirm("Apakah Anda yakin ingin menghapus jadwal les ini?")) return;
-    fetch("http://localhost:8080/api/admin/schedules/delete", {
+  // FUNGSI HAPUS
+  const handleDelete = (id_jadwal: number) => {
+    if (!window.confirm("Yakin ingin menghapus slot ketersediaan ini?")) return;
+    fetch("http://localhost:8080/api/admin/slots/delete", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id_detail })
+      body: JSON.stringify({ id_jadwal })
     })
-    .then(res => res.json())
-    .then(data => {
-      alert(data.message);
-      loadData();
-    });
+      .then(res => res.json())
+      .then(data => {
+        alert(data.message || "Slot terhapus!");
+        loadData();
+      })
+      .catch(() => alert("Gagal terhubung ke Backend Java!"));
   };
-
-  const filtered = schedules.filter(s =>
-    s.nama_siswa.toLowerCase().includes(search.toLowerCase()) ||
-    s.nama_guru.toLowerCase().includes(search.toLowerCase()) ||
-    s.nama_mapel.toLowerCase().includes(search.toLowerCase())
-  );
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-800">Manage Schedule (Admin)</h1>
+    <div className="space-y-5 relative p-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-bold text-slate-800">Manage Teacher Slots</h1>
+          <p className="text-sm text-slate-500">Atur ketersediaan waktu guru. Slot yang sudah dibooking akan terkunci.</p>
+        </div>
+        <Button onClick={() => { setForm({}); setDrawer("add"); }} icon={<Plus size={15} />}>Add New Slot</Button>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <table className="w-full text-left border-collapse">
+      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+        <table className="w-full text-sm text-left">
           <thead>
-            <tr className="bg-gray-50 border-b border-gray-200 text-gray-500 text-sm font-semibold">
-              <th className="p-4">Siswa</th>
-              <th className="p-4">Guru</th>
-              <th className="p-4">Mata Pelajaran</th>
-              <th className="p-4">Jenjang</th>
-              <th className="p-4">Waktu</th>
-              <th className="p-4 text-center">Aksi</th>
+            <tr className="bg-slate-50 border-b">
+              <th className="px-5 py-3 font-semibold text-slate-500">Guru</th>
+              <th className="px-5 py-3 font-semibold text-slate-500">Hari & Waktu</th>
+              <th className="px-5 py-3 font-semibold text-slate-500">Status</th>
+              <th className="px-5 py-3 font-semibold text-slate-500">Actions</th>
             </tr>
           </thead>
-          <tbody className="text-gray-700 text-sm divide-y divide-gray-100">
-            {filtered.map((s) => (
-              <tr key={s.id_detail} className="hover:bg-gray-50 transition-colors">
-                <td className="p-4 font-medium text-gray-900">{s.nama_siswa}</td>
-                <td className="p-4">{s.nama_guru}</td>
-                <td className="p-4"><span className="px-2 py-1 bg-blue-50 text-blue-700 rounded-md text-xs font-medium">{s.nama_mapel}</span></td>
-                <td className="p-4"><span className="px-2 py-1 bg-purple-50 text-purple-700 rounded-md text-xs font-medium">{s.nama_jenjang}</span></td>
-                <td className="p-4">
-                  <div className="flex items-center gap-1.5 text-gray-600">
-                    <Clock size={14} className="text-gray-400" />
-                    <span>{s.hari}, {s.jam_mulai.substring(0,5)} - {s.jam_selesai.substring(0,5)}</span>
-                  </div>
+          <tbody className="divide-y divide-slate-100">
+            {loading ? (
+              <tr><td colSpan={4} className="text-center py-5 text-slate-400">Loading data...</td></tr>
+            ) : filtered.length === 0 ? (
+              <tr><td colSpan={4} className="text-center py-5 text-slate-400">Belum ada slot tersedia.</td></tr>
+            ) : filtered.map((s) => (
+              <tr key={s.id_jadwal} className="border-b hover:bg-slate-50 transition-colors">
+                <td className="px-5 py-3 font-medium text-slate-800">{s.nama_guru}</td>
+                <td className="px-5 py-3 text-slate-600">{s.hari}, {s.jam_mulai?.substring(0, 5)} - {s.jam_selesai?.substring(0, 5)}</td>
+                <td className="px-5 py-3">
+                  {s.is_booked === 1 ? <Badge label="Booked" variant="danger" /> : <Badge label="Available" variant="success" />}
                 </td>
-                <td className="p-4 text-center">
-                  <div className="flex justify-center gap-2">
-                    <button onClick={() => setEditingItem(s)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"><Edit2 size={16} /></button>
-                    <button onClick={() => handleDelete(s.id_detail)} className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={16} /></button>
-                  </div>
+                <td className="px-5 py-3 flex gap-2">
+                  {/* LOGIKA PENGUNCIAN: Jika is_booked == 1, tombol Edit/Delete hilang */}
+                  {s.is_booked === 1 ? (
+                    <span className="text-xs text-slate-400 italic">Locked (Active Lesson)</span>
+                  ) : (
+                    <>
+                      <Button size="sm" onClick={() => { setForm(s); setDrawer("edit"); }}>Edit</Button>
+                      <Button size="sm" variant="danger" onClick={() => handleDelete(s.id_jadwal)}>Hapus</Button>
+                    </>
+                  )}
                 </td>
               </tr>
             ))}
@@ -1866,45 +2367,38 @@ function AdminManageSchedule({ search }: { search: string }) {
         </table>
       </div>
 
-      {/* MODAL EDIT JADWAL */}
-      {editingItem && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl shadow-xl border w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-            <div className="p-4 border-b flex justify-between items-center bg-gray-50">
-              <h3 className="font-bold text-gray-800">Edit Jadwal Les - {editingItem.nama_siswa}</h3>
-              <button onClick={() => setEditingItem(null)} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
+      {drawer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+          <div className="bg-white p-6 rounded-xl w-96 shadow-xl space-y-4">
+            <h2 className="font-bold text-lg">{drawer === "add" ? "Tambah Slot Guru" : "Edit Slot: " + form.nama_guru}</h2>
+
+            {/* Input Nama Guru hanya muncul saat Tambah Baru */}
+            {drawer === "add" && (
+              <Select
+                label="Pilih Guru"
+                value={String(form.id_guru ?? "")}
+                onChange={(v) => setForm({ ...form, id_guru: Number(v) })}
+                options={(db?.guru || []).map((g: any) => ({ value: String(g.id), label: g.nama }))}
+                required
+              />
+            )}
+
+            <Select
+              label="Hari"
+              value={form.hari ?? ""}
+              onChange={(v) => setForm({ ...form, hari: v })}
+              options={HARI.map((h: string) => ({ value: h, label: h }))}
+              required
+            />
+            <div className="grid grid-cols-2 gap-3">
+              <Input label="Jam Mulai" type="time" value={form.jam_mulai?.substring(0, 5) ?? ""} onChange={(v) => setForm({ ...form, jam_mulai: v })} required />
+              <Input label="Jam Selesai" type="time" value={form.jam_selesai?.substring(0, 5) ?? ""} onChange={(v) => setForm({ ...form, jam_selesai: v })} required />
             </div>
-            <form onSubmit={handleUpdate} className="p-4 space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 mb-1">Mata Pelajaran</label>
-                <select className="w-full border rounded-lg p-2 text-sm" value={editingItem.id_mapel} onChange={e => setEditingItem({ ...editingItem, id_mapel: parseInt(e.target.value) })}>
-                  {options.mapel.map(m => <option key={m.id} value={m.id}>{m.nama}</option>)}
-                </select>
-              </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 mb-1">Jenjang</label>
-                <select className="w-full border rounded-lg p-2 text-sm" value={editingItem.id_jenjang} onChange={e => setEditingItem({ ...editingItem, id_jenjang: parseInt(e.target.value) })}>
-                  {options.jenjang.map(j => <option key={j.id} value={j.id}>{j.nama}</option>)}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 mb-1">Slot Jadwal & Guru</label>
-                <select className="w-full border rounded-lg p-2 text-sm" value={editingItem.id_jadwal} onChange={e => setEditingItem({ ...editingItem, id_jadwal: parseInt(e.target.value) })}>
-                  {options.jadwal_guru.map(jg => (
-                    <option key={jg.id_jadwal} value={jg.id_jadwal}>
-                      [{jg.nama_guru}] {jg.hari}, {jg.jam_mulai.substring(0,5)}-{jg.jam_selesai.substring(0,5)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2 border-t">
-                <button type="button" onClick={() => setEditingItem(null)} className="px-4 py-2 border rounded-lg text-sm font-medium hover:bg-gray-50">Batal</button>
-                <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">Simpan Perubahan</button>
-              </div>
-            </form>
+            <div className="flex gap-2 pt-2">
+              <Button variant="secondary" onClick={() => setDrawer(null)} className="flex-1">Batal</Button>
+              <Button onClick={handleSave} className="flex-1">Simpan</Button>
+            </div>
           </div>
         </div>
       )}
@@ -2780,14 +3274,14 @@ function RegisterPage({ onGoLogin, db }: { onGoLogin: () => void, db: any }) {
                 <>
                   <Input label="Date of Birth" type="date" value={form.tanggal_lahir} onChange={f("tanggal_lahir")} required />
                   <Select label="Gender" value={form.jenis_kelamin} onChange={f("jenis_kelamin")} options={[{ value: "L", label: "Male" }, { value: "P", label: "Female" }]} placeholder="Select gender" required />
-                  <Select 
-    label="Education Level" 
-    value={form.id_jenjang} 
-    onChange={f("id_jenjang")} 
-    options={db.jenjang.map((j: any) => ({ value: String(j.id), label: j.nama }))} 
-    placeholder="Select level" 
-    required 
-  />
+                  <Select
+                    label="Education Level"
+                    value={form.id_jenjang}
+                    onChange={f("id_jenjang")}
+                    options={db.jenjang.map((j: any) => ({ value: String(j.id), label: j.nama }))}
+                    placeholder="Select level"
+                    required
+                  />
                 </>
               )}
               {role === "teacher" && (
@@ -2796,22 +3290,22 @@ function RegisterPage({ onGoLogin, db }: { onGoLogin: () => void, db: any }) {
                   <div className="space-y-3">
                     <div className="flex gap-2 items-end">
                       <div className="flex-1">
-                        <Select 
-    label="Subject" 
-    value={tempMapel} 
-    onChange={setTempMapel} 
-    options={db.mapel.map((m: any) => ({ value: String(m.id), label: m.nama }))} 
-    placeholder="Select subject" 
-  />
+                        <Select
+                          label="Subject"
+                          value={tempMapel}
+                          onChange={setTempMapel}
+                          options={db.mapel.map((m: any) => ({ value: String(m.id), label: m.nama }))}
+                          placeholder="Select subject"
+                        />
                       </div>
                       <div className="flex-1">
-                        <Select 
-    label="Education Level" 
-    value={tempJenjang} 
-    onChange={setTempJenjang} 
-    options={db.jenjang.map((j: any) => ({ value: String(j.id), label: j.nama }))} 
-    placeholder="Select level" 
-  />
+                        <Select
+                          label="Education Level"
+                          value={tempJenjang}
+                          onChange={setTempJenjang}
+                          options={db.jenjang.map((j: any) => ({ value: String(j.id), label: j.nama }))}
+                          placeholder="Select level"
+                        />
                       </div>
                       <Button type="button" onClick={addExpertise} size="md" className="mb-0.5" variant="primary"><Plus size={16} /></Button>
                     </div>
@@ -2820,7 +3314,7 @@ function RegisterPage({ onGoLogin, db }: { onGoLogin: () => void, db: any }) {
                       <div className="flex flex-wrap gap-2 p-3 bg-slate-50 rounded-lg border border-slate-100">
                         {expertises.map((e, idx) => {
                           const mName = db.mapel.find((m: any) => String(m.id) === e.mapel)?.nama;
-  const jName = db.jenjang.find((j: any) => String(j.id) === e.jenjang)?.nama;
+                          const jName = db.jenjang.find((j: any) => String(j.id) === e.jenjang)?.nama;
                           return (
                             <span key={idx} className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white border border-slate-200 rounded-md text-xs font-medium text-slate-600 shadow-sm">
                               {mName} ({jName})
@@ -2845,6 +3339,180 @@ function RegisterPage({ onGoLogin, db }: { onGoLogin: () => void, db: any }) {
   );
 }
 
+function AdminAdmins({ search, db }: any) {
+  const [drawer, setDrawer] = useState<any>(null);
+  const [editItem, setEditItem] = useState<any>(null);
+  const [admins, setAdmins] = useState<any[]>([]);
+  const [form, setForm] = useState<any>({});
+
+  const loadData = () => {
+    fetch("http://localhost:8080/api/admin/admins")
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data)) setAdmins(data);
+      })
+      .catch((err) => console.error("Gagal memuat admin:", err));
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const filtered = admins.filter((a) =>
+    [a.nama, a.email, a.no_hp]
+      .join(" ")
+      .toLowerCase()
+      .includes((search || "").toLowerCase())
+  );
+
+  function openAdd() {
+    setForm({ nama: "", email: "", no_hp: "" });
+    setEditItem(null);
+    setDrawer("add");
+  }
+
+  function openEdit(a: any) {
+    setForm({ ...a });
+    setEditItem(a);
+    setDrawer("edit");
+  }
+
+  function handleDelete(id: number) {
+    if (!window.confirm("Apakah Anda yakin ingin menghapus Admin ini?")) return;
+
+    fetch("http://localhost:8080/api/admin/admins/delete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id_admin: id }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        alert(data.message || data.pesan);
+        if (data.status === "sukses") loadData();
+      })
+      .catch(() => alert("Gagal menghubungi server."));
+  }
+
+  function handleSave() {
+    if (drawer === "add") {
+      fetch("http://localhost:8080/api/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          role: "admin",
+          nama: form.nama,
+          email: form.email,
+          no_hp: form.no_hp,
+          password: "admin123", // Password default admin baru
+        }),
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.status === "sukses") {
+            alert("Admin berhasil ditambahkan ke Database!");
+            loadData();
+          } else {
+            alert("Gagal menambahkan admin: " + data.pesan);
+          }
+        })
+        .catch(() => alert("Gagal menghubungi server."));
+
+    } else if (drawer === "edit") {
+      fetch("http://localhost:8080/api/admin/admins/update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id_admin: editItem.id,
+          nama: form.nama,
+          email: form.email,
+          no_hp: form.no_hp,
+        }),
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.status === "sukses") {
+            alert("Data Admin berhasil diperbarui!");
+            loadData();
+          } else {
+            alert("Gagal update admin: " + data.message);
+          }
+        })
+        .catch(() => alert("Gagal menghubungi server."));
+    }
+    setDrawer(null);
+  }
+
+  return (
+    <div className="space-y-5 relative p-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-bold text-slate-800">Admins</h1>
+          <p className="text-sm text-slate-500 mt-0.5">Manage admin accounts with platform access.</p>
+        </div>
+        <Button onClick={openAdd} icon={<Plus size={15} />}>Add Admin</Button>
+      </div>
+
+      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+        <div className="px-5 py-3 border-b border-slate-100 bg-slate-50">
+          <p className="text-sm text-slate-500 font-medium">{filtered.length} admins found</p>
+        </div>
+        <table className="w-full text-sm text-left">
+          <thead>
+            <tr className="border-b border-slate-200 text-slate-500 uppercase text-xs">
+              <th className="px-5 py-3 font-semibold">Name</th>
+              <th className="px-5 py-3 font-semibold">Email</th>
+              <th className="px-5 py-3 font-semibold">Phone</th>
+              <th className="px-5 py-3 font-semibold">Role</th>
+              <th className="px-5 py-3 font-semibold">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {filtered.map((a) => (
+              <tr key={a.id} className="hover:bg-slate-50 transition-colors group">
+                <td className="px-5 py-3.5 flex items-center gap-3">
+                  <Avatar name={a.nama || "?"} size="sm" />
+                  <span className="font-medium text-slate-800">{a.nama}</span>
+                </td>
+                <td className="px-5 py-3.5 text-slate-600">{a.email}</td>
+                <td className="px-5 py-3.5 text-slate-600">{a.no_hp}</td>
+                <td className="px-5 py-3.5">
+                  <Badge label="Administrator" variant="warning" />
+                </td>
+                <td className="px-5 py-3.5">
+                  <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button onClick={() => openEdit(a)} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-lg transition-all"><Edit2 size={14} /></button>
+                    <button onClick={() => handleDelete(a.id)} className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-all"><Trash2 size={14} /></button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {drawer && (
+        <>
+          <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-30" onClick={() => setDrawer(null)} />
+          <div className="fixed top-0 right-0 h-full w-96 bg-white shadow-2xl z-40 flex flex-col animate-in slide-in-from-right-8 duration-200">
+            <div className="px-6 py-5 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+              <h2 className="text-base font-bold text-slate-800">{drawer === "add" ? "Add New Admin" : "Edit Admin"}</h2>
+              <button onClick={() => setDrawer(null)} className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-lg"><X size={16} /></button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-6 py-6 space-y-4">
+              <Input label="Full Name" value={form.nama ?? ""} onChange={(v: string) => setForm((p: any) => ({ ...p, nama: v }))} required />
+              <Input label="Email Address" type="email" value={form.email ?? ""} onChange={(v: string) => setForm((p: any) => ({ ...p, email: v }))} required />
+              <Input label="Phone Number" value={form.no_hp ?? ""} onChange={(v: string) => setForm((p: any) => ({ ...p, no_hp: v }))} required />
+            </div>
+            <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex gap-3">
+              <Button variant="secondary" onClick={() => setDrawer(null)} className="flex-1 justify-center">Cancel</Button>
+              <Button onClick={handleSave} className="flex-1 justify-center">{drawer === "add" ? "Add Admin" : "Save Changes"}</Button>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
 // ─── Main App ─────────────────────────────────────────────────────────────
 export default function App() {
   const [authScreen, setAuthScreen] = useState<"login" | "register" | null>(
@@ -2957,12 +3625,12 @@ export default function App() {
       }
       return <TeacherDashboard loggedInId={loggedInId} loggedInName={loggedInName} />;
     }
-   // Bagian Router Halaman Admin di App.tsx Anda
-    if (page === "students") return <AdminStudents search={globalSearch} />;
-    if (page === "teachers") return <AdminTeachers search={globalSearch} />;
-    if (page === "admins") return <AdminAdmins search={globalSearch} />;
-    if (page === "schedule") {
-      return <AdminManageSchedule search={globalSearch} />; // SINKRONKAN DISINI
+    // Bagian Router Halaman Admin di App.tsx Anda
+    if (page === "students") return <AdminStudents search={globalSearch} db={db} />;
+    if (page === "teachers") return <AdminTeachers search={globalSearch} db={db} />;
+    if (page === "admins") return <AdminAdmins search={globalSearch} db={db} />;
+    if (page === "schedules") {
+      return <AdminManageSchedule search={globalSearch} db={db} />;
     }
     return <AdminDashboard />;
   }

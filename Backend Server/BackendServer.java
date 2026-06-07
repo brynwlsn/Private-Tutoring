@@ -48,7 +48,15 @@ public class BackendServer {
         server.createContext("/api/admin/schedules/update", new UpdateScheduleHandler());
         server.createContext("/api/admin/schedules/delete", new DeleteScheduleHandler());
         server.createContext("/api/admin/options", new AdminOptionsHandler()); // Untuk dropdown edit
-
+        server.createContext("/api/admin/teachers/delete", new DeleteTeacherHandler());
+        server.createContext("/api/admin/teachers/update", new UpdateTeacherHandler());
+        server.createContext("/api/admin/students/delete", new DeleteStudentHandler());
+        server.createContext("/api/admin/students/update", new UpdateStudentHandler());
+        server.createContext("/api/admin/admins/delete", new DeleteAdminHandler());
+        server.createContext("/api/admin/admins/update", new UpdateAdminHandler());
+        server.createContext("/api/admin/slots", new AdminSlotGuruHandler());
+        server.createContext("/api/admin/slots/update", new AdminUpdateSlotHandler());
+        server.createContext("/api/admin/slots/delete", new AdminDeleteSlotHandler());
         server.setExecutor(null);
         System.out.println("Server Back-End Java jalan di: http://localhost:8080");
         server.start();
@@ -552,17 +560,17 @@ public class BackendServer {
     static class AdminScheduleHandler implements HttpHandler {
         @Override
         public void handle(HttpExchange exchange) throws IOException {
-            exchange.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
-            String sql = "SELECT d.id_detail, d.id_les, d.id_jadwal, d.id_mapel, d.id_jenjang, " +
-                    "s.nama AS nama_siswa, g.nama AS nama_guru, m.nama_mapel, j.nama_jenjang, " +
-                    "jkg.hari, jkg.jam_mulai, jkg.jam_selesai " +
-                    "FROM Detail_Daftar_Les d " +
-                    "JOIN Les l ON d.id_les = l.id_les " +
-                    "JOIN Siswa s ON l.id_siswa = s.id_siswa " +
-                    "JOIN Jadwal_Kesediaan_Guru jkg ON d.id_jadwal = jkg.id_jadwal " +
-                    "JOIN Guru g ON jkg.id_guru = g.id_guru " +
-                    "JOIN Mata_pelajaran m ON d.id_mapel = m.id_mapel " +
-                    "JOIN Jenjang j ON d.id_jenjang = j.id_jenjang";
+            aturCORS(exchange);
+            // Query ini mengambil semua slot, baik yang sudah ada les atau belum
+            String sql = "SELECT j.id_jadwal, j.hari, j.jam_mulai, j.jam_selesai, g.nama AS nama_guru, " +
+                    "s.nama AS nama_siswa, m.nama_mapel, jn.nama_jenjang, d.id_detail " +
+                    "FROM Jadwal_Kesediaan_Guru j " +
+                    "JOIN Guru g ON j.id_guru = g.id_guru " +
+                    "LEFT JOIN Detail_Daftar_Les d ON j.id_jadwal = d.id_jadwal " +
+                    "LEFT JOIN Les l ON d.id_les = l.id_les " +
+                    "LEFT JOIN Siswa s ON l.id_siswa = s.id_siswa " +
+                    "LEFT JOIN Mata_pelajaran m ON d.id_mapel = m.id_mapel " +
+                    "LEFT JOIN Jenjang jn ON d.id_jenjang = jn.id_jenjang";
             try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD);
                     PreparedStatement ps = conn.prepareStatement(sql);
                     ResultSet rs = ps.executeQuery()) {
@@ -594,32 +602,45 @@ public class BackendServer {
     static class UpdateScheduleHandler implements HttpHandler {
         @Override
         public void handle(HttpExchange exchange) throws IOException {
-            exchange.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
-            exchange.getResponseHeaders().add("Access-Control-Allow-Headers", "Content-Type");
+            aturCORS(exchange);
             if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
                 exchange.sendResponseHeaders(204, -1);
                 return;
             }
 
             try {
-                String body = new BufferedReader(new InputStreamReader(exchange.getRequestBody())).lines()
-                        .collect(Collectors.joining("\n"));
-
-                // PERBAIKAN DI SINI: getJsonValue diganti menjadi ambilNilaiJSON
+                String body = bacaBody(exchange);
                 int idDetail = Integer.parseInt(ambilNilaiJSON(body, "id_detail"));
-                int idJadwal = Integer.parseInt(ambilNilaiJSON(body, "id_jadwal"));
+                int idJadwal = Integer.parseInt(ambilNilaiJSON(body, "id_jadwal")); // Jika ada
                 int idMapel = Integer.parseInt(ambilNilaiJSON(body, "id_mapel"));
                 int idJenjang = Integer.parseInt(ambilNilaiJSON(body, "id_jenjang"));
 
-                try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD);
-                        PreparedStatement ps = conn.prepareStatement(
-                                "UPDATE Detail_Daftar_Les SET id_jadwal = ?, id_mapel = ?, id_jenjang = ? WHERE id_detail = ?")) {
-                    ps.setInt(1, idJadwal);
-                    ps.setInt(2, idMapel);
-                    ps.setInt(3, idJenjang);
-                    ps.setInt(4, idDetail);
-                    ps.executeUpdate();
-                    kirimResponJSON(exchange, 200, "{\"message\":\"Jadwal berhasil diperbarui!\"}");
+                // Tambahkan ini: waktu manual
+                String hari = ambilNilaiJSON(body, "hari");
+                String jamMulai = ambilNilaiJSON(body, "jam_mulai");
+                String jamSelesai = ambilNilaiJSON(body, "jam_selesai");
+
+                try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD)) {
+                    // Update detail les (mapel/jenjang)
+                    String sqlDetail = "UPDATE Detail_Daftar_Les SET id_mapel = ?, id_jenjang = ? WHERE id_detail = ?";
+                    try (PreparedStatement ps = conn.prepareStatement(sqlDetail)) {
+                        ps.setInt(1, idMapel);
+                        ps.setInt(2, idJenjang);
+                        ps.setInt(3, idDetail);
+                        ps.executeUpdate();
+                    }
+
+                    // Update waktu di tabel Jadwal_Kesediaan_Guru
+                    String sqlJadwal = "UPDATE Jadwal_Kesediaan_Guru SET hari = ?, jam_mulai = ?, jam_selesai = ? WHERE id_jadwal = ?";
+                    try (PreparedStatement ps = conn.prepareStatement(sqlJadwal)) {
+                        ps.setString(1, hari);
+                        ps.setString(2, jamMulai);
+                        ps.setString(3, jamSelesai);
+                        ps.setInt(4, idJadwal);
+                        ps.executeUpdate();
+                    }
+
+                    kirimResponJSON(exchange, 200, "{\"message\":\"Jadwal berhasil diatur ulang!\"}");
                 }
             } catch (Exception e) {
                 kirimResponJSON(exchange, 500, "{\"error\":\"" + escapeJson(e.getMessage()) + "\"}");
@@ -654,6 +675,35 @@ public class BackendServer {
                 }
             } catch (Exception e) {
                 kirimResponJSON(exchange, 500, "{\"error\":\"" + escapeJson(e.getMessage()) + "\"}");
+            }
+
+            if ("POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                String jsonInput = bacaBody(exchange);
+                int idDetail = Integer.parseInt(ambilNilaiJSON(jsonInput, "id_detail"));
+
+                try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD)) {
+                    // CEK: Apakah jadwal ini sedang dipakai dalam les aktif?
+                    String sqlCek = "SELECT COUNT(*) FROM Detail_Daftar_Les WHERE id_detail = ? AND id_les IS NOT NULL";
+                    // Atau sesuaikan dengan logic tabelmu jika id_les tersimpan di sana
+
+                    PreparedStatement psCek = conn.prepareStatement(sqlCek);
+                    psCek.setInt(1, idDetail);
+                    ResultSet rs = psCek.executeQuery();
+
+                    if (rs.next() && rs.getInt(1) > 0) {
+                        kirimResponJSON(exchange, 400,
+                                "{\"message\":\"Tidak bisa hapus! Jadwal ini sudah dipesan oleh siswa.\"}");
+                        return;
+                    }
+
+                    // Jika aman, baru hapus
+                    PreparedStatement ps = conn.prepareStatement("DELETE FROM Detail_Daftar_Les WHERE id_detail = ?");
+                    ps.setInt(1, idDetail);
+                    ps.executeUpdate();
+                    kirimResponJSON(exchange, 200, "{\"message\":\"Jadwal berhasil dihapus!\"}");
+                } catch (Exception e) {
+                    kirimResponJSON(exchange, 500, "{\"message\":\"Error database.\"}");
+                }
             }
         }
     }
@@ -1129,6 +1179,408 @@ public class BackendServer {
                 } catch (Exception e) {
                     e.printStackTrace();
                     kirimResponJSON(exchange, 400, "{\"status\":\"gagal\", \"pesan\":\"" + e.getMessage() + "\"}");
+                }
+            }
+        }
+    }
+
+    static class DeleteTeacherHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            aturCORS(exchange);
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(204, -1);
+                return;
+            }
+
+            if ("POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                String jsonInput = bacaBody(exchange);
+                try {
+                    int idGuru = Integer.parseInt(ambilNilaiJSON(jsonInput, "id_guru"));
+
+                    try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD)) {
+                        // 1. Hapus keahlian guru tersebut
+                        try (PreparedStatement ps = conn
+                                .prepareStatement("DELETE FROM Keahlian_Guru WHERE id_guru = ?")) {
+                            ps.setInt(1, idGuru);
+                            ps.executeUpdate();
+                        }
+
+                        // 2. Hapus jadwal kosong guru tersebut
+                        try (PreparedStatement ps = conn
+                                .prepareStatement("DELETE FROM Jadwal_Kesediaan_Guru WHERE id_guru = ?")) {
+                            ps.setInt(1, idGuru);
+                            ps.executeUpdate();
+                        }
+
+                        // 3. Hapus data guru utama
+                        try (PreparedStatement ps = conn.prepareStatement("DELETE FROM Guru WHERE id_guru = ?")) {
+                            ps.setInt(1, idGuru);
+                            ps.executeUpdate();
+                        }
+
+                        kirimResponJSON(exchange, 200,
+                                "{\"status\":\"sukses\", \"message\":\"Guru berhasil dihapus dari Database!\"}");
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    String errMsg = e.getMessage();
+                    // Cegah penghapusan jika guru sudah punya murid yang les (Mencegah SQL Crash)
+                    if (errMsg.contains("REFERENCE") || errMsg.contains("FOREIGN KEY")) {
+                        kirimResponJSON(exchange, 400,
+                                "{\"status\":\"gagal\", \"pesan\":\"Tidak bisa menghapus: Guru ini masih terikat dengan riwayat les siswa.\"}");
+                    } else {
+                        kirimResponJSON(exchange, 500,
+                                "{\"status\":\"gagal\", \"pesan\":\"Terjadi kesalahan server.\"}");
+                    }
+                }
+            }
+        }
+    }
+
+    // Handler Update Guru oleh Admin
+    static class UpdateTeacherHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            aturCORS(exchange);
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(204, -1);
+                return;
+            }
+
+            if ("POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                String jsonInput = bacaBody(exchange);
+                try {
+                    int idGuru = Integer.parseInt(ambilNilaiJSON(jsonInput, "id_guru"));
+                    String nama = ambilNilaiJSON(jsonInput, "nama");
+                    String email = ambilNilaiJSON(jsonInput, "email");
+                    String noHp = ambilNilaiJSON(jsonInput, "no_hp");
+                    String expertisesStr = ambilNilaiJSON(jsonInput, "expertises");
+
+                    try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD)) {
+                        // 1. Update Data Utama Guru
+                        String sqlUpdateGuru = "UPDATE Guru SET nama = ?, email = ?, no_hp = ? WHERE id_guru = ?";
+                        try (PreparedStatement ps = conn.prepareStatement(sqlUpdateGuru)) {
+                            ps.setString(1, nama);
+                            ps.setString(2, email);
+                            ps.setString(3, noHp);
+                            ps.setInt(4, idGuru);
+                            ps.executeUpdate();
+                        }
+
+                        // 2. Hapus Semua Keahlian Lama
+                        String sqlDeleteKeahlian = "DELETE FROM Keahlian_Guru WHERE id_guru = ?";
+                        try (PreparedStatement ps = conn.prepareStatement(sqlDeleteKeahlian)) {
+                            ps.setInt(1, idGuru);
+                            ps.executeUpdate();
+                        }
+
+                        // 3. Masukkan Keahlian Baru (jika ada)
+                        if (!expertisesStr.isEmpty()) {
+                            String[] expArr = expertisesStr.split(",");
+                            String sqlKeahlian = "INSERT INTO Keahlian_Guru (id_keahlian, id_guru, id_mapel, id_jenjang) VALUES (?, ?, ?, ?)";
+                            try (PreparedStatement pstmtKeahlian = conn.prepareStatement(sqlKeahlian)) {
+                                int counter = 1;
+                                for (String exp : expArr) {
+                                    String[] parts = exp.split("-");
+                                    if (parts.length == 2) {
+                                        int idKeahlian = (int) (System.currentTimeMillis() % 100000)
+                                                + (int) (Math.random() * 50000) + counter;
+                                        pstmtKeahlian.setInt(1, idKeahlian);
+                                        pstmtKeahlian.setInt(2, idGuru);
+                                        pstmtKeahlian.setInt(3, Integer.parseInt(parts[0]));
+                                        pstmtKeahlian.setInt(4, Integer.parseInt(parts[1]));
+                                        pstmtKeahlian.executeUpdate();
+                                        counter++;
+                                    }
+                                }
+                            }
+                        }
+                        kirimResponJSON(exchange, 200,
+                                "{\"status\":\"sukses\", \"message\":\"Data Guru berhasil diperbarui!\"}");
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    kirimResponJSON(exchange, 500,
+                            "{\"status\":\"gagal\", \"message\":\"Error: " + escapeJson(e.getMessage()) + "\"}");
+                }
+            }
+        }
+    }
+
+    // Handler Hapus Siswa oleh Admin
+    static class DeleteStudentHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            aturCORS(exchange);
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(204, -1);
+                return;
+            }
+
+            if ("POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                String jsonInput = bacaBody(exchange);
+                try {
+                    int idSiswa = Integer.parseInt(ambilNilaiJSON(jsonInput, "id_siswa"));
+
+                    try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD)) {
+                        String sql = "DELETE FROM Siswa WHERE id_siswa = ?";
+                        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                            ps.setInt(1, idSiswa);
+                            ps.executeUpdate();
+                        }
+                        kirimResponJSON(exchange, 200,
+                                "{\"status\":\"sukses\", \"message\":\"Siswa berhasil dihapus dari Database!\"}");
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    String errMsg = e.getMessage();
+                    // Pencegahan jika siswa masih punya riwayat booking les
+                    if (errMsg.contains("REFERENCE") || errMsg.contains("FOREIGN KEY")) {
+                        kirimResponJSON(exchange, 400,
+                                "{\"status\":\"gagal\", \"pesan\":\"Tidak bisa menghapus: Siswa ini memiliki jadwal atau riwayat les aktif.\"}");
+                    } else {
+                        kirimResponJSON(exchange, 500,
+                                "{\"status\":\"gagal\", \"pesan\":\"Terjadi kesalahan server.\"}");
+                    }
+                }
+            }
+        }
+    }
+
+    // Handler Update Siswa oleh Admin
+    static class UpdateStudentHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            aturCORS(exchange);
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(204, -1);
+                return;
+            }
+
+            if ("POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                String jsonInput = bacaBody(exchange);
+                try {
+                    int idSiswa = Integer.parseInt(ambilNilaiJSON(jsonInput, "id_siswa"));
+                    String nama = ambilNilaiJSON(jsonInput, "nama");
+                    String email = ambilNilaiJSON(jsonInput, "email");
+                    String noHp = ambilNilaiJSON(jsonInput, "no_hp");
+                    String idJenjangStr = ambilNilaiJSON(jsonInput, "id_jenjang");
+                    String tglLahir = ambilNilaiJSON(jsonInput, "tanggal_lahir");
+                    String jenisKelamin = ambilNilaiJSON(jsonInput, "jenis_kelamin");
+
+                    int idJenjang = idJenjangStr.isEmpty() ? 1 : Integer.parseInt(idJenjangStr);
+
+                    try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD)) {
+                        String sql = "UPDATE Siswa SET nama = ?, email = ?, no_hp = ?, id_jenjang = ?, tgl_lahir = ?, jenis_kelamin = ? WHERE id_siswa = ?";
+                        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                            ps.setString(1, nama);
+                            ps.setString(2, email);
+                            ps.setString(3, noHp);
+                            ps.setInt(4, idJenjang);
+
+                            java.sql.Date sqlDate = null;
+                            try {
+                                if (tglLahir.contains("-")) {
+                                    sqlDate = java.sql.Date.valueOf(tglLahir);
+                                }
+                            } catch (Exception dateEx) {
+                                sqlDate = java.sql.Date.valueOf("2000-01-01");
+                            }
+
+                            ps.setDate(5, sqlDate);
+                            ps.setString(6, jenisKelamin);
+                            ps.setInt(7, idSiswa);
+                            ps.executeUpdate();
+                        }
+                        kirimResponJSON(exchange, 200,
+                                "{\"status\":\"sukses\", \"message\":\"Data Siswa berhasil diperbarui!\"}");
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    kirimResponJSON(exchange, 500,
+                            "{\"status\":\"gagal\", \"message\":\"Error: " + escapeJson(e.getMessage()) + "\"}");
+                }
+            }
+        }
+    }
+
+    // Handler Hapus Admin
+    static class DeleteAdminHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            aturCORS(exchange);
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(204, -1);
+                return;
+            }
+
+            if ("POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                String jsonInput = bacaBody(exchange);
+                try {
+                    int idAdmin = Integer.parseInt(ambilNilaiJSON(jsonInput, "id_admin"));
+
+                    try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD)) {
+                        String sql = "DELETE FROM Admin WHERE id_admin = ?";
+                        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                            ps.setInt(1, idAdmin);
+                            ps.executeUpdate();
+                        }
+                        kirimResponJSON(exchange, 200,
+                                "{\"status\":\"sukses\", \"message\":\"Admin berhasil dihapus dari Database!\"}");
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    String errMsg = e.getMessage();
+                    if (errMsg.contains("REFERENCE") || errMsg.contains("FOREIGN KEY")) {
+                        kirimResponJSON(exchange, 400,
+                                "{\"status\":\"gagal\", \"pesan\":\"Tidak bisa menghapus: Admin ini masih terikat dengan data jadwal atau guru.\"}");
+                    } else {
+                        kirimResponJSON(exchange, 500,
+                                "{\"status\":\"gagal\", \"pesan\":\"Terjadi kesalahan server.\"}");
+                    }
+                }
+            }
+        }
+    }
+
+    // Handler Update Admin
+    static class UpdateAdminHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            aturCORS(exchange);
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(204, -1);
+                return;
+            }
+
+            if ("POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                String jsonInput = bacaBody(exchange);
+                try {
+                    int idAdmin = Integer.parseInt(ambilNilaiJSON(jsonInput, "id_admin"));
+                    String nama = ambilNilaiJSON(jsonInput, "nama");
+                    String email = ambilNilaiJSON(jsonInput, "email");
+                    String noHp = ambilNilaiJSON(jsonInput, "no_hp");
+
+                    try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD)) {
+                        String sql = "UPDATE Admin SET nama = ?, email = ?, no_hp = ? WHERE id_admin = ?";
+                        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                            ps.setString(1, nama);
+                            ps.setString(2, email);
+                            ps.setString(3, noHp);
+                            ps.setInt(4, idAdmin);
+                            ps.executeUpdate();
+                        }
+                        kirimResponJSON(exchange, 200,
+                                "{\"status\":\"sukses\", \"message\":\"Data Admin berhasil diperbarui!\"}");
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    kirimResponJSON(exchange, 500,
+                            "{\"status\":\"gagal\", \"message\":\"Error: " + escapeJson(e.getMessage()) + "\"}");
+                }
+            }
+        }
+    }
+
+    // Tambahkan Handler ini untuk mengambil semua slot ketersediaan guru
+    // Tambahkan Handler ini untuk mengambil semua slot ketersediaan guru
+    static class AdminSlotGuruHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            aturCORS(exchange);
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(204, -1);
+                return;
+            }
+
+            String sql = "SELECT j.id_jadwal, j.hari, j.jam_mulai, j.jam_selesai, j.id_guru, g.nama AS nama_guru, " +
+                    "CASE WHEN l.id_les IS NOT NULL THEN 1 ELSE 0 END AS is_booked " +
+                    "FROM Jadwal_Kesediaan_Guru j " +
+                    "JOIN Guru g ON j.id_guru = g.id_guru " +
+                    "LEFT JOIN Detail_Daftar_Les d ON j.id_jadwal = d.id_jadwal " +
+                    "LEFT JOIN Les l ON d.id_les = l.id_les";
+
+            try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD);
+                    PreparedStatement ps = conn.prepareStatement(sql);
+                    ResultSet rs = ps.executeQuery()) {
+                StringBuilder sb = new StringBuilder("[");
+                while (rs.next()) {
+                    if (sb.length() > 1)
+                        sb.append(",");
+                    // PASTIKAN NAMA KUNCI JSON INI HURUF KECIL DAN SESUAI:
+                    sb.append(String.format(
+                            "{\"id_jadwal\":%d,\"hari\":\"%s\",\"jam_mulai\":\"%s\",\"jam_selesai\":\"%s\",\"id_guru\":%d,\"nama_guru\":\"%s\",\"is_booked\":%d}",
+                            rs.getInt("id_jadwal"), rs.getString("hari"), rs.getString("jam_mulai"),
+                            rs.getString("jam_selesai"), rs.getInt("id_guru"), escapeJson(rs.getString("nama_guru")),
+                            rs.getInt("is_booked")));
+                }
+                sb.append("]");
+                kirimResponJSON(exchange, 200, sb.toString());
+            } catch (Exception e) {
+                kirimResponJSON(exchange, 500, "{\"error\":\"" + escapeJson(e.getMessage()) + "\"}");
+            }
+        }
+    }
+
+    // Handler Update Slot Guru oleh Admin
+    static class AdminUpdateSlotHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            aturCORS(exchange);
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(204, -1);
+                return;
+            }
+            if ("POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                String body = bacaBody(exchange);
+                try {
+                    int idJadwal = Integer.parseInt(ambilNilaiJSON(body, "id_jadwal"));
+                    String hari = ambilNilaiJSON(body, "hari");
+                    String jamMulai = ambilNilaiJSON(body, "jam_mulai");
+                    String jamSelesai = ambilNilaiJSON(body, "jam_selesai");
+
+                    try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD)) {
+                        String sql = "UPDATE Jadwal_Kesediaan_Guru SET hari = ?, jam_mulai = ?, jam_selesai = ? WHERE id_jadwal = ?";
+                        PreparedStatement ps = conn.prepareStatement(sql);
+                        ps.setString(1, hari);
+                        ps.setString(2, jamMulai);
+                        ps.setString(3, jamSelesai);
+                        ps.setInt(4, idJadwal);
+                        ps.executeUpdate();
+                        kirimResponJSON(exchange, 200,
+                                "{\"status\":\"sukses\",\"message\":\"Slot waktu berhasil diubah!\"}");
+                    }
+                } catch (Exception e) {
+                    kirimResponJSON(exchange, 500, "{\"error\":\"" + escapeJson(e.getMessage()) + "\"}");
+                }
+            }
+        }
+    }
+
+    // Handler Hapus Slot Guru oleh Admin
+    static class AdminDeleteSlotHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            aturCORS(exchange);
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(204, -1);
+                return;
+            }
+            if ("POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                String body = bacaBody(exchange);
+                try {
+                    int idJadwal = Integer.parseInt(ambilNilaiJSON(body, "id_jadwal"));
+                    try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD)) {
+                        String sql = "DELETE FROM Jadwal_Kesediaan_Guru WHERE id_jadwal = ?";
+                        PreparedStatement ps = conn.prepareStatement(sql);
+                        ps.setInt(1, idJadwal);
+                        ps.executeUpdate();
+                        kirimResponJSON(exchange, 200,
+                                "{\"status\":\"sukses\",\"message\":\"Slot waktu berhasil dihapus!\"}");
+                    }
+                } catch (Exception e) {
+                    kirimResponJSON(exchange, 500, "{\"error\":\"" + escapeJson(e.getMessage()) + "\"}");
                 }
             }
         }
