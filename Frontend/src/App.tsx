@@ -694,8 +694,6 @@ function TopBar({
   );
 }
 
-// ─── Page: Book a Lesson (Student) ───────────────────────────────────────────
-// ─── Page: Book a Lesson (Student) ───────────────────────────────────────────
 // Tambahkan parameter db di sini agar komponen ini bisa membaca data dari database
 // ─── Page: Book a Lesson (Student) ───────────────────────────────────────────
 function BookLesson({ loggedInId, setActiveLessons, db }: any) {
@@ -1290,17 +1288,27 @@ function MyLessons({ loggedInId, activeLessons, db }: any) {
 }
 
 // ─── Page: Teacher Availability ────────────────────────────────────────────
-function TeacherAvailability({ loggedInId }: any) {
+
+function TeacherAvailability({ loggedInId, db }: any) {
   const guruId = loggedInId;
-  const [availList, setAvailList] = useState<JadwalKesediaan[]>(
-    JADWAL.filter((j) => j.id_guru === guruId),
-  );
+  const [availList, setAvailList] = useState<JadwalKesediaan[]>([]);
   const [hari, setHari] = useState("");
   const [jamMulai, setJamMulai] = useState("");
   const [jamSelesai, setJamSelesai] = useState("");
   const [toast, setToast] = useState<string | null>(null);
 
-  function handleAdd() {
+  // FIX 1: Selalu ambil data ter-update dari server saat halaman ini dibuka.
+  // Tambahan `?_=${new Date().getTime()}` adalah trik agar browser tidak memakai cache lama.
+  useEffect(() => {
+    fetch(`http://localhost:8080/api/jadwal?_=${new Date().getTime()}`)
+      .then((res) => res.json())
+      .then((data) => {
+        setAvailList(data.filter((j: any) => j.id_guru === guruId));
+      })
+      .catch((err) => console.error("Gagal mengambil jadwal:", err));
+  }, [guruId]);
+
+  async function handleAdd() {
     if (!hari || !jamMulai || !jamSelesai) return;
 
     let start = timeToMinutes(jamMulai);
@@ -1312,7 +1320,7 @@ function TeacherAvailability({ loggedInId }: any) {
       const slotEnd = `${String(Math.floor((start + 60) / 60)).padStart(2, "0")}:${String((start + 60) % 60).padStart(2, "0")}`;
 
       newSlots.push({
-        id: Date.now() + start,
+        id: Math.floor(Math.random() * 1000000) + start,
         hari,
         jam_mulai: slotStart,
         jam_selesai: slotEnd,
@@ -1323,8 +1331,31 @@ function TeacherAvailability({ loggedInId }: any) {
       start += 60;
     }
 
-    setAvailList((p) => [...p, ...newSlots]);
-    setToast("Availability slots added successfully!");
+    try {
+      let allSuccess = true;
+      for (const slot of newSlots) {
+        const response = await fetch("http://localhost:8080/api/jadwal/add", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(slot),
+        });
+        const data = await response.json();
+        if (data.status !== "sukses") {
+          allSuccess = false;
+          setToast("Gagal menyimpan: " + data.pesan);
+          break;
+        }
+      }
+
+      if (allSuccess) {
+        // FIX 2: Tampilkan langsung ke layar tanpa harus refresh
+        setAvailList((p) => [...p, ...newSlots]);
+        setToast("Availability slots added successfully to Database!");
+      }
+    } catch (e) {
+      setToast("Gagal terhubung ke server Java.");
+    }
+
     setHari("");
     setJamMulai("");
     setJamSelesai("");
@@ -1334,6 +1365,7 @@ function TeacherAvailability({ loggedInId }: any) {
     setAvailList((p) => p.filter((j) => j.id !== id));
   }
 
+  // ... (Sisa return UI-nya biarkan sama persis seperti aslinya)
   return (
     <div className="space-y-6">
       {toast && (
@@ -1461,10 +1493,20 @@ function TeacherSchedule({ loggedInId, db }: any) {
     };
   });
 
-  function getLessonsForDay(dayIso: string) {
-    return teacherLessons.filter(
-      (l) => l.tanggal_mulai.split("T")[0] === dayIso
-    );
+ // Mengecek kesamaan HARI dan rentang masa kontrak
+  function getLessonsForDay(date: Date, hari: string) {
+    return teacherLessons.filter((l) => {
+      // 1. Cek apakah jadwalnya memiliki hari yang sama dengan kotak kalender ini (misal: "Monday")
+      if (l.hari !== hari) return false;
+
+      // 2. Cek apakah tanggal kotak kalender berada dalam masa kontrak/les (tgl_mulai s/d tgl_selesai)
+      const start = new Date(l.tanggal_mulai.split("T")[0]);
+      const end = new Date(l.tanggal_selesai.split("T")[0]);
+      start.setHours(0, 0, 0, 0);
+      end.setHours(23, 59, 59, 999);
+
+      return date >= start && date <= end;
+    });
   }
 
   function prevWeek() {
@@ -1535,8 +1577,8 @@ function TeacherSchedule({ loggedInId, db }: any) {
           ))}
         </div>
         <div className="grid grid-cols-7 divide-x divide-slate-100 min-h-[280px]">
-          {weekDates.map(({ hari, iso }, ci) => {
-            const dayLessons = getLessonsForDay(iso);
+          {weekDates.map(({ hari, date }, ci) => {
+            const dayLessons = getLessonsForDay(date, hari);
             return (
               <div key={hari} className="p-2 space-y-1.5 min-h-[180px]">
                 {dayLessons.length === 0 && (
@@ -1662,614 +1704,209 @@ function TeacherSchedule({ loggedInId, db }: any) {
 type DrawerMode = "add" | "edit" | null;
 
 function AdminStudents({ search }: { search: string }) {
-  const [drawer, setDrawer] = useState<DrawerMode>(null);
-  const [editItem, setEditItem] = useState<Siswa | null>(null);
-  const [students, setStudents] = useState<Siswa[]>(SISWA);
-  const [sortField, setSortField] = useState<keyof Siswa>("nama");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
-  const [form, setForm] = useState<Partial<Siswa>>({});
-
-  const filtered = students
-    .filter((s) =>
-      [s.nama, s.email, s.no_hp]
-        .join(" ")
-        .toLowerCase()
-        .includes(search.toLowerCase()),
-    )
-    .sort((a, b) => {
-      const av = String(a[sortField] ?? "");
-      const bv = String(b[sortField] ?? "");
-      return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
-    });
-
-  function openAdd() {
-    setForm({});
-    setEditItem(null);
-    setDrawer("add");
-  }
-  function openEdit(s: Siswa) {
-    setForm(s);
-    setEditItem(s);
-    setDrawer("edit");
-  }
-  function handleDelete(id: number) {
-    setStudents((p) => p.filter((s) => s.id !== id));
-  }
-  function handleSave() {
-    if (drawer === "add") {
-      const newId = Math.floor(Math.random() * 10000);
-      const dataSiswaBaru = {
-        id_siswa: newId,
-        id_jenjang: Number(form.id_jenjang),
-        nama: form.nama,
-        tanggal_lahir: form.tanggal_lahir,
-        jenis_Kelamin: form.jenis_kelamin,
-        no_hp: form.no_hp,
-        email: form.email,
-        pswrd: "siswa123",
-      };
-
-      fetch("http://localhost:8080/api/siswa", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(dataSiswaBaru),
-      })
-        .then((response) => response.json())
-        .then((data) => {
-          if (data.status === "sukses") {
-            setStudents((p) => [...p, { ...form, id: newId } as Siswa]);
-            alert("Sukses! Data " + form.nama + " tersimpan di Azure SQL.");
-          } else {
-            alert("Gagal menyimpan ke database: " + data.pesan);
-          }
-        })
-        .catch((error) => {
-          console.error(error);
-          alert(
-            "Gagal koneksi ke Back-End. Pastikan BackendServer.java menyala!",
-          );
-        });
-    } else if (editItem) {
-      setStudents((p) =>
-        p.map((s) => (s.id === editItem.id ? ({ ...s, ...form } as Siswa) : s)),
-      );
-    }
-    setDrawer(null);
-  }
-  function toggleSort(f: keyof Siswa) {
-    if (sortField === f) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    else {
-      setSortField(f);
-      setSortDir("asc");
-    }
-  }
-
-  const jenjangMap: Record<number, string> = { 1: "SD", 2: "SMP", 3: "SMA" };
+  const [data, setData] = useState<any[]>([]);
+  useEffect(() => {
+    fetch("http://localhost:8080/api/admin/students").then(res => res.json()).then(setData);
+  }, []);
+  const filtered = data.filter(i => i.nama.toLowerCase().includes(search.toLowerCase()) || i.email.toLowerCase().includes(search.toLowerCase()));
 
   return (
-    <div className="space-y-5 relative">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-slate-800">Students</h1>
-          <p className="text-sm text-slate-500 mt-0.5">
-            Manage all registered students in the system.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="secondary" size="sm" icon={<Download size={14} />}>
-            Export
-          </Button>
-          <Button onClick={openAdd} icon={<Plus size={15} />}>
-            Add Student
-          </Button>
-        </div>
-      </div>
-      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-        <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
-          <p className="text-sm text-slate-500">
-            {filtered.length} of {students.length} students
-          </p>
-          <Button
-            variant="ghost"
-            size="sm"
-            icon={<SlidersHorizontal size={14} />}
-          >
-            Filter
-          </Button>
-        </div>
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="bg-slate-50 border-b border-slate-100">
-              {[
-                ["nama", "Name"],
-                ["id_jenjang", "Level"],
-                ["jenis_kelamin", "Gender"],
-                ["tanggal_lahir", "Date of Birth"],
-                ["email", "Email"],
-                ["no_hp", "Phone"],
-              ].map(([f, h]) => (
-                <th key={f} className="px-5 py-3 text-left">
-                  <button
-                    onClick={() => toggleSort(f as keyof Siswa)}
-                    className="flex items-center gap-1 text-xs font-semibold text-slate-500 uppercase tracking-wider hover:text-slate-700 transition-colors"
-                  >
-                    {h}
-                    <ArrowUpDown size={11} className="text-slate-400" />
-                  </button>
-                </th>
-              ))}
-              <th className="px-5 py-3" />
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((s) => (
-              <tr
-                key={s.id}
-                className="border-b border-slate-50 hover:bg-slate-50/80 transition-colors group"
-              >
-                <td className="px-5 py-3.5">
-                  <div className="flex items-center gap-2.5">
-                    <Avatar name={s.nama} size="sm" />
-                    <span className="font-medium text-slate-800">{s.nama}</span>
-                  </div>
-                </td>
-                <td className="px-5 py-3.5">
-                  <Badge
-                    label={jenjangMap[s.id_jenjang] ?? "—"}
-                    variant="info"
-                  />
-                </td>
-                <td className="px-5 py-3.5 text-slate-600">
-                  {s.jenis_kelamin === "L" ? "Male" : "Female"}
-                </td>
-                <td className="px-5 py-3.5 text-slate-500">
-                  {s.tanggal_lahir}
-                </td>
-                <td className="px-5 py-3.5 text-slate-600">{s.email}</td>
-                <td className="px-5 py-3.5 text-slate-600">{s.no_hp}</td>
-                <td className="px-5 py-3.5">
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button
-                      onClick={() => openEdit(s)}
-                      className="p-1.5 text-slate-400 hover:text-[#4361EE] hover:bg-indigo-50 rounded-lg transition-all"
-                    >
-                      <Edit2 size={13} />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(s.id)}
-                      className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
-                    >
-                      <Trash2 size={13} />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      {drawer && (
-        <>
-          <div
-            className="fixed inset-0 bg-black/25 z-30"
-            onClick={() => setDrawer(null)}
-          />
-          <div className="fixed top-0 right-0 h-full w-96 bg-white shadow-2xl z-40 flex flex-col">
-            <div className="px-6 py-5 border-b border-slate-200 flex items-center justify-between">
-              <h2 className="text-base font-bold text-slate-800">
-                {drawer === "add" ? "Add New Student" : "Edit Student"}
-              </h2>
-              <button
-                onClick={() => setDrawer(null)}
-                className="p-1.5 hover:bg-slate-100 rounded-lg"
-              >
-                <X size={16} />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
-              <Input
-                label="Full Name"
-                value={form.nama ?? ""}
-                onChange={(v) => setForm((p) => ({ ...p, nama: v }))}
-                required
-              />
-              <Select
-                label="Jenjang"
-                value={String(form.id_jenjang ?? "")}
-                onChange={(v) =>
-                  setForm((p) => ({ ...p, id_jenjang: Number(v) }))
-                }
-                options={JENJANG.map((j) => ({
-                  value: String(j.id),
-                  label: j.nama,
-                }))}
-                placeholder="Select jenjang"
-                required
-              />
-              <Select
-                label="Jenis Kelamin"
-                value={form.jenis_kelamin ?? ""}
-                onChange={(v) => setForm((p) => ({ ...p, jenis_kelamin: v }))}
-                options={[
-                  { value: "L", label: "Male" },
-                  { value: "P", label: "Female" },
-                ]}
-                placeholder="Select gender"
-                required
-              />
-              <Input
-                label="Date of Birth"
-                type="date"
-                value={form.tanggal_lahir ?? ""}
-                onChange={(v) => setForm((p) => ({ ...p, tanggal_lahir: v }))}
-                required
-              />
-              <Input
-                label="Email"
-                type="email"
-                value={form.email ?? ""}
-                onChange={(v) => setForm((p) => ({ ...p, email: v }))}
-                required
-              />
-              <Input
-                label="Phone Number"
-                value={form.no_hp ?? ""}
-                onChange={(v) => setForm((p) => ({ ...p, no_hp: v }))}
-                required
-              />
-            </div>
-            <div className="px-6 py-4 border-t border-slate-200 flex gap-3">
-              <Button
-                variant="secondary"
-                onClick={() => setDrawer(null)}
-                className="flex-1 justify-center"
-              >
-                Cancel
-              </Button>
-              <Button onClick={handleSave} className="flex-1 justify-center">
-                {drawer === "add" ? "Add Student" : "Save Changes"}
-              </Button>
-            </div>
-          </div>
-        </>
-      )}
+    <div className="p-6 bg-white rounded-xl shadow-sm m-6 border border-gray-100">
+      <h2 className="text-xl font-bold text-gray-800 mb-4">Daftar Siswa terdaftar</h2>
+      <table className="w-full text-left border-collapse">
+        <thead>
+          <tr className="border-b border-gray-200 text-gray-500 text-sm"><th className="pb-3">ID</th><th className="pb-3">Nama</th><th className="pb-3">Email</th><th className="pb-3">No. HP</th></tr>
+        </thead>
+        <tbody className="text-gray-700 text-sm">
+          {filtered.map(s => <tr key={s.id} className="border-b border-gray-100"><td className="py-3">{s.id}</td><td className="py-3 font-medium">{s.nama}</td><td className="py-3">{s.email}</td><td className="py-3">{s.no_hp}</td></tr>)}
+        </tbody>
+      </table>
     </div>
   );
 }
 
 function AdminTeachers({ search }: { search: string }) {
-  const [drawer, setDrawer] = useState<DrawerMode>(null);
-  const [editItem, setEditItem] = useState<Guru | null>(null);
-  const [teachers, setTeachers] = useState<Guru[]>(GURU);
-  const [form, setForm] = useState<Partial<Guru>>({});
-  const [formSubject, setFormSubject] = useState("");
-  const [formEduLevel, setFormEduLevel] = useState("");
-
-  const filtered = teachers.filter((t) =>
-    [t.nama, t.email, t.no_hp]
-      .join(" ")
-      .toLowerCase()
-      .includes(search.toLowerCase()),
-  );
-
-  function openAdd() {
-    setForm({});
-    setFormSubject("");
-    setFormEduLevel("");
-    setEditItem(null);
-    setDrawer("add");
-  }
-  function openEdit(g: Guru) {
-    setForm(g);
-    setFormSubject("");
-    setFormEduLevel("");
-    setEditItem(g);
-    setDrawer("edit");
-  }
-  function handleDelete(id: number) {
-    setTeachers((p) => p.filter((g) => g.id !== id));
-  }
-  function handleSave() {
-    if (drawer === "add")
-      setTeachers((p) => [...p, { ...form, id: Date.now() } as Guru]);
-    else if (editItem)
-      setTeachers((p) =>
-        p.map((g) => (g.id === editItem.id ? ({ ...g, ...form } as Guru) : g)),
-      );
-    setDrawer(null);
-  }
+  const [data, setData] = useState<any[]>([]);
+  useEffect(() => {
+    fetch("http://localhost:8080/api/admin/teachers").then(res => res.json()).then(setData);
+  }, []);
+  const filtered = data.filter(i => i.nama.toLowerCase().includes(search.toLowerCase()));
 
   return (
-    <div className="space-y-5 relative">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-slate-800">Teachers</h1>
-          <p className="text-sm text-slate-500 mt-0.5">
-            Manage all registered tutors and their expertise.
-          </p>
-        </div>
-        <Button onClick={openAdd} icon={<Plus size={15} />}>
-          Add Teacher
-        </Button>
-      </div>
-      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-        <div className="px-5 py-3 border-b border-slate-100">
-          <p className="text-sm text-slate-500">{filtered.length} teachers</p>
-        </div>
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="bg-slate-50 border-b border-slate-100">
-              {["Name", "Email", "Phone", "Expertise", "Actions"].map((h) => (
-                <th
-                  key={h}
-                  className="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider"
-                >
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((g) => {
-              const expertise = KEAHLIAN.filter((k) => k.id_guru === g.id)
-                .slice(0, 2)
-                .map((k) => {
-                  const mp = MAPEL.find((m) => m.id === k.id_mapel);
-                  const jj = JENJANG.find((j) => j.id === k.id_jenjang);
-                  return `${mp?.nama} ${jj?.nama}`;
-                });
-              return (
-                <tr
-                  key={g.id}
-                  className="border-b border-slate-50 hover:bg-slate-50/80 transition-colors group"
-                >
-                  <td className="px-5 py-3.5">
-                    <div className="flex items-center gap-2.5">
-                      <Avatar name={g.nama} size="sm" />
-                      <span className="font-medium text-slate-800">
-                        {g.nama}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-5 py-3.5 text-slate-600">{g.email}</td>
-                  <td className="px-5 py-3.5 text-slate-600">{g.no_hp}</td>
-                  <td className="px-5 py-3.5">
-                    <div className="flex gap-1 flex-wrap">
-                      {expertise.map((e) => (
-                        <Badge key={e} label={e} variant="info" />
-                      ))}
-                    </div>
-                  </td>
-                  <td className="px-5 py-3.5">
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button
-                        onClick={() => openEdit(g)}
-                        className="p-1.5 text-slate-400 hover:text-[#4361EE] hover:bg-indigo-50 rounded-lg transition-all"
-                      >
-                        <Edit2 size={13} />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(g.id)}
-                        className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
-                      >
-                        <Trash2 size={13} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-      {drawer && (
-        <>
-          <div
-            className="fixed inset-0 bg-black/25 z-30"
-            onClick={() => setDrawer(null)}
-          />
-          <div className="fixed top-0 right-0 h-full w-96 bg-white shadow-2xl z-40 flex flex-col">
-            <div className="px-6 py-5 border-b border-slate-200 flex items-center justify-between">
-              <h2 className="text-base font-bold text-slate-800">
-                {drawer === "add" ? "Add New Teacher" : "Edit Teacher"}
-              </h2>
-              <button
-                onClick={() => setDrawer(null)}
-                className="p-1.5 hover:bg-slate-100 rounded-lg"
-              >
-                <X size={16} />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
-              <Input
-                label="Full Name"
-                value={form.nama ?? ""}
-                onChange={(v) => setForm((p) => ({ ...p, nama: v }))}
-                required
-              />
-              <Input
-                label="Email"
-                type="email"
-                value={form.email ?? ""}
-                onChange={(v) => setForm((p) => ({ ...p, email: v }))}
-                required
-              />
-              <Input
-                label="Phone Number"
-                value={form.no_hp ?? ""}
-                onChange={(v) => setForm((p) => ({ ...p, no_hp: v }))}
-                required
-              />
-              <div className="pt-2 border-t border-slate-100">
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">
-                  Expertise
-                </p>
-                <div className="space-y-3">
-                  <Select
-                    label="Subject"
-                    value={formSubject}
-                    onChange={setFormSubject}
-                    options={Array.from(
-                      new Map(MAPEL.map((m) => [m.nama, m])).values(),
-                    ).map((m) => ({ value: m.nama, label: m.nama }))}
-                    placeholder="Select subject"
-                  />
-                  <Select
-                    label="Education Level"
-                    value={formEduLevel}
-                    onChange={setFormEduLevel}
-                    options={JENJANG.map((j) => ({
-                      value: j.nama,
-                      label: j.nama,
-                    }))}
-                    placeholder="Select level"
-                  />
-                </div>
-              </div>
-            </div>
-            <div className="px-6 py-4 border-t border-slate-200 flex gap-3">
-              <Button
-                variant="secondary"
-                onClick={() => setDrawer(null)}
-                className="flex-1 justify-center"
-              >
-                Cancel
-              </Button>
-              <Button onClick={handleSave} className="flex-1 justify-center">
-                {drawer === "add" ? "Add Teacher" : "Save Changes"}
-              </Button>
-            </div>
-          </div>
-        </>
-      )}
+    <div className="p-6 bg-white rounded-xl shadow-sm m-6 border border-gray-100">
+      <h2 className="text-xl font-bold text-gray-800 mb-4">Daftar Guru / Pengajar</h2>
+      <table className="w-full text-left border-collapse">
+        <thead>
+          <tr className="border-b border-gray-200 text-gray-500 text-sm"><th className="pb-3">ID</th><th className="pb-3">Nama</th><th className="pb-3">Email</th><th className="pb-3">No. HP</th></tr>
+        </thead>
+        <tbody className="text-gray-700 text-sm">
+          {filtered.map(t => <tr key={t.id} className="border-b border-gray-100"><td className="py-3">{t.id}</td><td className="py-3 font-medium">{t.nama}</td><td className="py-3">{t.email}</td><td className="py-3">{t.no_hp}</td></tr>)}
+        </tbody>
+      </table>
     </div>
   );
 }
 
 function AdminAdmins({ search }: { search: string }) {
-  const [drawer, setDrawer] = useState<DrawerMode>(null);
-  const [admins, setAdmins] = useState<Admin[]>(ADMINS);
-  const [form, setForm] = useState<Partial<Admin>>({});
-
-  const filtered = admins.filter((a) =>
-    [a.nama, a.email, a.no_hp]
-      .join(" ")
-      .toLowerCase()
-      .includes(search.toLowerCase()),
-  );
-  function handleSave() {
-    setAdmins((p) => [...p, { ...form, id: Date.now() } as Admin]);
-    setDrawer(null);
-  }
+  const [data, setData] = useState<any[]>([]);
+  useEffect(() => {
+    fetch("http://localhost:8080/api/admin/admins").then(res => res.json()).then(setData);
+  }, []);
+  const filtered = data.filter(i => i.nama.toLowerCase().includes(search.toLowerCase()));
 
   return (
-    <div className="space-y-5 relative">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-slate-800">Admins</h1>
-          <p className="text-sm text-slate-500 mt-0.5">
-            Manage admin accounts with platform access.
-          </p>
-        </div>
-        <Button
-          onClick={() => {
-            setForm({});
-            setDrawer("add");
-          }}
-          icon={<Plus size={15} />}
-        >
-          Add Admin
-        </Button>
+    <div className="p-6 bg-white rounded-xl shadow-sm m-6 border border-gray-100">
+      <h2 className="text-xl font-bold text-gray-800 mb-4">Daftar Administrator System</h2>
+      <table className="w-full text-left border-collapse">
+        <thead>
+          <tr className="border-b border-gray-200 text-gray-500 text-sm"><th className="pb-3">ID</th><th className="pb-3">Nama</th><th className="pb-3">Email</th><th className="pb-3">No. HP</th></tr>
+        </thead>
+        <tbody className="text-gray-700 text-sm">
+          {filtered.map(a => <tr key={a.id} className="border-b border-gray-100"><td className="py-3">{a.id}</td><td className="py-3 font-medium">{a.nama}</td><td className="py-3">{a.email}</td><td className="py-3">{a.no_hp}</td></tr>)}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function AdminManageSchedule({ search }: { search: string }) {
+  const [schedules, setSchedules] = useState<any[]>([]);
+  const [options, setOptions] = useState<{ mapel: any[]; jenjang: any[]; jadwal_guru: any[] }>({ mapel: [], jenjang: [], jadwal_guru: [] });
+  const [editingItem, setEditingItem] = useState<any | null>(null);
+
+  const loadData = () => {
+    fetch("http://localhost:8080/api/admin/schedules").then(res => res.json()).then(setSchedules);
+    fetch("http://localhost:8080/api/admin/options").then(res => res.json()).then(setOptions);
+  };
+
+  useEffect(() => { loadData(); }, []);
+
+  const handleUpdate = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingItem) return;
+
+    fetch("http://localhost:8080/api/admin/schedules/update", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id_detail: editingItem.id_detail,
+        id_jadwal: editingItem.id_jadwal,
+        id_mapel: editingItem.id_mapel,
+        id_jenjang: editingItem.id_jenjang
+      })
+    })
+    .then(res => res.json())
+    .then(data => {
+      alert(data.message || "Berhasil diperbarui");
+      setEditingItem(null);
+      loadData();
+    });
+  };
+
+  const handleDelete = (id_detail: number) => {
+    if (!confirm("Apakah Anda yakin ingin menghapus jadwal les ini?")) return;
+    fetch("http://localhost:8080/api/admin/schedules/delete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id_detail })
+    })
+    .then(res => res.json())
+    .then(data => {
+      alert(data.message);
+      loadData();
+    });
+  };
+
+  const filtered = schedules.filter(s =>
+    s.nama_siswa.toLowerCase().includes(search.toLowerCase()) ||
+    s.nama_guru.toLowerCase().includes(search.toLowerCase()) ||
+    s.nama_mapel.toLowerCase().includes(search.toLowerCase())
+  );
+
+  return (
+    <div className="p-6 space-y-6">
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold text-gray-800">Manage Schedule (Admin)</h1>
       </div>
-      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-        <table className="w-full text-sm">
+
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="bg-slate-50 border-b border-slate-100">
-              {["Name", "Email", "Phone", "Role"].map((h) => (
-                <th
-                  key={h}
-                  className="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider"
-                >
-                  {h}
-                </th>
-              ))}
+            <tr className="bg-gray-50 border-b border-gray-200 text-gray-500 text-sm font-semibold">
+              <th className="p-4">Siswa</th>
+              <th className="p-4">Guru</th>
+              <th className="p-4">Mata Pelajaran</th>
+              <th className="p-4">Jenjang</th>
+              <th className="p-4">Waktu</th>
+              <th className="p-4 text-center">Aksi</th>
             </tr>
           </thead>
-          <tbody>
-            {filtered.map((a) => (
-              <tr
-                key={a.id}
-                className="border-b border-slate-50 hover:bg-slate-50/80 transition-colors"
-              >
-                <td className="px-5 py-3.5">
-                  <div className="flex items-center gap-2.5">
-                    <Avatar name={a.nama} size="sm" />
-                    <span className="font-medium text-slate-800">{a.nama}</span>
+          <tbody className="text-gray-700 text-sm divide-y divide-gray-100">
+            {filtered.map((s) => (
+              <tr key={s.id_detail} className="hover:bg-gray-50 transition-colors">
+                <td className="p-4 font-medium text-gray-900">{s.nama_siswa}</td>
+                <td className="p-4">{s.nama_guru}</td>
+                <td className="p-4"><span className="px-2 py-1 bg-blue-50 text-blue-700 rounded-md text-xs font-medium">{s.nama_mapel}</span></td>
+                <td className="p-4"><span className="px-2 py-1 bg-purple-50 text-purple-700 rounded-md text-xs font-medium">{s.nama_jenjang}</span></td>
+                <td className="p-4">
+                  <div className="flex items-center gap-1.5 text-gray-600">
+                    <Clock size={14} className="text-gray-400" />
+                    <span>{s.hari}, {s.jam_mulai.substring(0,5)} - {s.jam_selesai.substring(0,5)}</span>
                   </div>
                 </td>
-                <td className="px-5 py-3.5 text-slate-600">{a.email}</td>
-                <td className="px-5 py-3.5 text-slate-600">{a.no_hp}</td>
-                <td className="px-5 py-3.5">
-                  <Badge label="Administrator" variant="warning" />
+                <td className="p-4 text-center">
+                  <div className="flex justify-center gap-2">
+                    <button onClick={() => setEditingItem(s)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"><Edit2 size={16} /></button>
+                    <button onClick={() => handleDelete(s.id_detail)} className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={16} /></button>
+                  </div>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-      {drawer && (
-        <>
-          <div
-            className="fixed inset-0 bg-black/25 z-30"
-            onClick={() => setDrawer(null)}
-          />
-          <div className="fixed top-0 right-0 h-full w-96 bg-white shadow-2xl z-40 flex flex-col">
-            <div className="px-6 py-5 border-b border-slate-200 flex items-center justify-between">
-              <h2 className="text-base font-bold text-slate-800">
-                Add New Admin
-              </h2>
-              <button
-                onClick={() => setDrawer(null)}
-                className="p-1.5 hover:bg-slate-100 rounded-lg"
-              >
-                <X size={16} />
-              </button>
+
+      {/* MODAL EDIT JADWAL */}
+      {editingItem && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-xl border w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="p-4 border-b flex justify-between items-center bg-gray-50">
+              <h3 className="font-bold text-gray-800">Edit Jadwal Les - {editingItem.nama_siswa}</h3>
+              <button onClick={() => setEditingItem(null)} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
             </div>
-            <div className="flex-1 px-6 py-5 space-y-4">
-              <Input
-                label="Full Name"
-                value={form.nama ?? ""}
-                onChange={(v) => setForm((p) => ({ ...p, nama: v }))}
-                required
-              />
-              <Input
-                label="Email"
-                type="email"
-                value={form.email ?? ""}
-                onChange={(v) => setForm((p) => ({ ...p, email: v }))}
-                required
-              />
-              <Input
-                label="Phone Number"
-                value={form.no_hp ?? ""}
-                onChange={(v) => setForm((p) => ({ ...p, no_hp: v }))}
-                required
-              />
-            </div>
-            <div className="px-6 py-4 border-t border-slate-200 flex gap-3">
-              <Button
-                variant="secondary"
-                onClick={() => setDrawer(null)}
-                className="flex-1 justify-center"
-              >
-                Cancel
-              </Button>
-              <Button onClick={handleSave} className="flex-1 justify-center">
-                Add Admin
-              </Button>
-            </div>
+            <form onSubmit={handleUpdate} className="p-4 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 mb-1">Mata Pelajaran</label>
+                <select className="w-full border rounded-lg p-2 text-sm" value={editingItem.id_mapel} onChange={e => setEditingItem({ ...editingItem, id_mapel: parseInt(e.target.value) })}>
+                  {options.mapel.map(m => <option key={m.id} value={m.id}>{m.nama}</option>)}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 mb-1">Jenjang</label>
+                <select className="w-full border rounded-lg p-2 text-sm" value={editingItem.id_jenjang} onChange={e => setEditingItem({ ...editingItem, id_jenjang: parseInt(e.target.value) })}>
+                  {options.jenjang.map(j => <option key={j.id} value={j.id}>{j.nama}</option>)}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 mb-1">Slot Jadwal & Guru</label>
+                <select className="w-full border rounded-lg p-2 text-sm" value={editingItem.id_jadwal} onChange={e => setEditingItem({ ...editingItem, id_jadwal: parseInt(e.target.value) })}>
+                  {options.jadwal_guru.map(jg => (
+                    <option key={jg.id_jadwal} value={jg.id_jadwal}>
+                      [{jg.nama_guru}] {jg.hari}, {jg.jam_mulai.substring(0,5)}-{jg.jam_selesai.substring(0,5)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t">
+                <button type="button" onClick={() => setEditingItem(null)} className="px-4 py-2 border rounded-lg text-sm font-medium hover:bg-gray-50">Batal</button>
+                <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">Simpan Perubahan</button>
+              </div>
+            </form>
           </div>
-        </>
+        </div>
       )}
     </div>
   );
@@ -2480,111 +2117,47 @@ function TeacherDashboard({ loggedInId, loggedInName }: any) {
 }
 
 function AdminDashboard() {
+  const [stats, setStats] = useState({ total_siswa: 0, total_guru: 0, total_admin: 0, total_les: 0 });
+
+  useEffect(() => {
+    fetch("http://localhost:8080/api/admin/stats")
+      .then((res) => res.json())
+      .then((data) => setStats(data))
+      .catch((err) => console.error("Error fetching stats:", err));
+  }, []);
+
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-bold text-slate-800">Admin Dashboard</h1>
-        <p className="text-sm text-slate-500 mt-0.5">
-          Platform-wide overview of EduCapy.
-        </p>
-      </div>
-      <div className="grid grid-cols-4 gap-5">
-        {[
-          {
-            label: "Total Students",
-            value: String(SISWA.length),
-            Icon: GraduationCap,
-            color: "bg-sky-50 text-sky-500",
-          },
-          {
-            label: "Total Teachers",
-            value: String(GURU.length),
-            Icon: UserCheck,
-            color: "bg-violet-50 text-violet-500",
-          },
-          {
-            label: "Total Lessons",
-            value: String(LES_DATA.length),
-            Icon: BookOpen,
-            color: "bg-indigo-50 text-[#4361EE]",
-          },
-          {
-            label: "Admins",
-            value: String(ADMINS.length),
-            Icon: Shield,
-            color: "bg-emerald-50 text-emerald-500",
-          },
-        ].map(({ label, value, Icon, color }) => (
-          <div
-            key={label}
-            className="bg-white border border-slate-200 rounded-xl p-5 flex items-center gap-4"
-          >
-            <div
-              className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${color.split(" ")[0]}`}
-            >
-              <Icon size={20} className={color.split(" ")[1]} />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-slate-800">{value}</p>
-              <p className="text-xs text-slate-500">{label}</p>
-            </div>
+    <div className="p-6 space-y-6">
+      <h1 className="text-2xl font-bold text-[#1E293B]">Admin Dashboard</h1>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="p-4 bg-white rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
+          <div className="p-3 bg-blue-50 text-blue-600 rounded-lg"><Users size={24} /></div>
+          <div>
+            <p className="text-sm text-gray-500 font-medium">Total Siswa</p>
+            <p className="text-2xl font-bold text-gray-800">{stats.total_siswa}</p>
           </div>
-        ))}
-      </div>
-      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-        <div className="px-5 py-3 border-b border-slate-100">
-          <p className="text-sm font-semibold text-slate-700">
-            Recent Lesson Bookings
-          </p>
         </div>
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="bg-slate-50 border-b border-slate-100">
-              {["Student", "Teacher", "Subject", "Date", "Time"].map((h) => (
-                <th
-                  key={h}
-                  className="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider"
-                >
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {LES_DATA.map((les) => {
-              // FIX: guru lewat jadwal.id_guru, mapel lewat les.id_mapel
-              const jadwal = JADWAL.find((j) => j.id === les.id_jadwal);
-              const guru = GURU.find((g) => g.id === jadwal?.id_guru);
-              const siswa = SISWA.find((s) => s.id === les.id_siswa);
-              const mapel = MAPEL.find((m) => m.id === les.id_mapel);
-              return (
-                <tr
-                  key={les.id}
-                  className="border-b border-slate-50 hover:bg-slate-50/80 transition-colors"
-                >
-                  <td className="px-5 py-3.5">
-                    <div className="flex items-center gap-2">
-                      <Avatar name={siswa?.nama ?? "?"} size="sm" />
-                      <span className="font-medium text-slate-800">
-                        {siswa?.nama}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-5 py-3.5 text-slate-600">{guru?.nama}</td>
-                  <td className="px-5 py-3.5">
-                    <Badge label={mapel?.nama ?? "—"} variant="info" />
-                  </td>
-                  <td className="px-5 py-3.5 text-slate-500">
-                    {les.tanggal_mulai.split("T")[0]}
-                  </td>
-                  <td className="px-5 py-3.5 text-slate-500">
-                    {toHHMM(les.tanggal_mulai)} – {toHHMM(les.tanggal_selesai)}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+        <div className="p-4 bg-white rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
+          <div className="p-3 bg-green-50 text-green-600 rounded-lg"><GraduationCap size={24} /></div>
+          <div>
+            <p className="text-sm text-gray-500 font-medium">Total Guru</p>
+            <p className="text-2xl font-bold text-gray-800">{stats.total_guru}</p>
+          </div>
+        </div>
+        <div className="p-4 bg-white rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
+          <div className="p-3 bg-purple-50 text-purple-600 rounded-lg"><Shield size={24} /></div>
+          <div>
+            <p className="text-sm text-gray-500 font-medium">Total Admin</p>
+            <p className="text-2xl font-bold text-gray-800">{stats.total_admin}</p>
+          </div>
+        </div>
+        <div className="p-4 bg-white rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
+          <div className="p-3 bg-orange-50 text-orange-600 rounded-lg"><BookOpen size={24} /></div>
+          <div>
+            <p className="text-sm text-gray-500 font-medium">Jadwal Les</p>
+            <p className="text-2xl font-bold text-gray-800">{stats.total_les}</p>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -3030,7 +2603,7 @@ function LoginPage({
 
 // ─── Auth: Register Page ──────────────────────────────────────────────────
 // ─── Auth: Register Page ──────────────────────────────────────────────────
-function RegisterPage({ onGoLogin }: { onGoLogin: () => void }) {
+function RegisterPage({ onGoLogin, db }: { onGoLogin: () => void, db: any }) {
   const [role, setRegRole] = useState<Role>("student");
   const [step, setStep] = useState<1 | 2>(1);
   const [form, setForm] = useState({ nama: "", email: "", no_hp: "", password: "", confirm: "", tanggal_lahir: "", jenis_kelamin: "", id_jenjang: "" });
@@ -3207,7 +2780,14 @@ function RegisterPage({ onGoLogin }: { onGoLogin: () => void }) {
                 <>
                   <Input label="Date of Birth" type="date" value={form.tanggal_lahir} onChange={f("tanggal_lahir")} required />
                   <Select label="Gender" value={form.jenis_kelamin} onChange={f("jenis_kelamin")} options={[{ value: "L", label: "Male" }, { value: "P", label: "Female" }]} placeholder="Select gender" required />
-                  <Select label="Education Level" value={form.id_jenjang} onChange={f("id_jenjang")} options={JENJANG.map((j) => ({ value: String(j.id), label: j.nama }))} placeholder="Select level" required />
+                  <Select 
+    label="Education Level" 
+    value={form.id_jenjang} 
+    onChange={f("id_jenjang")} 
+    options={db.jenjang.map((j: any) => ({ value: String(j.id), label: j.nama }))} 
+    placeholder="Select level" 
+    required 
+  />
                 </>
               )}
               {role === "teacher" && (
@@ -3216,10 +2796,22 @@ function RegisterPage({ onGoLogin }: { onGoLogin: () => void }) {
                   <div className="space-y-3">
                     <div className="flex gap-2 items-end">
                       <div className="flex-1">
-                        <Select label="Subject" value={tempMapel} onChange={setTempMapel} options={MAPEL.map((m) => ({ value: String(m.id), label: m.nama }))} placeholder="Select subject" />
+                        <Select 
+    label="Subject" 
+    value={tempMapel} 
+    onChange={setTempMapel} 
+    options={db.mapel.map((m: any) => ({ value: String(m.id), label: m.nama }))} 
+    placeholder="Select subject" 
+  />
                       </div>
                       <div className="flex-1">
-                        <Select label="Education Level" value={tempJenjang} onChange={setTempJenjang} options={JENJANG.map((j) => ({ value: String(j.id), label: j.nama }))} placeholder="Select level" />
+                        <Select 
+    label="Education Level" 
+    value={tempJenjang} 
+    onChange={setTempJenjang} 
+    options={db.jenjang.map((j: any) => ({ value: String(j.id), label: j.nama }))} 
+    placeholder="Select level" 
+  />
                       </div>
                       <Button type="button" onClick={addExpertise} size="md" className="mb-0.5" variant="primary"><Plus size={16} /></Button>
                     </div>
@@ -3227,8 +2819,8 @@ function RegisterPage({ onGoLogin }: { onGoLogin: () => void }) {
                     {expertises.length > 0 && (
                       <div className="flex flex-wrap gap-2 p-3 bg-slate-50 rounded-lg border border-slate-100">
                         {expertises.map((e, idx) => {
-                          const mName = MAPEL.find(m => String(m.id) === e.mapel)?.nama;
-                          const jName = JENJANG.find(j => String(j.id) === e.jenjang)?.nama;
+                          const mName = db.mapel.find((m: any) => String(m.id) === e.mapel)?.nama;
+  const jName = db.jenjang.find((j: any) => String(j.id) === e.jenjang)?.nama;
                           return (
                             <span key={idx} className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white border border-slate-200 rounded-md text-xs font-medium text-slate-600 shadow-sm">
                               {mName} ({jName})
@@ -3330,7 +2922,7 @@ export default function App() {
       />
     );
   if (authScreen === "register")
-    return <RegisterPage onGoLogin={() => setAuthScreen("login")} />;
+    return <RegisterPage onGoLogin={() => setAuthScreen("login")} db={db} />;
 
   function renderPage() {
     if (loggedInRole === "student") {
@@ -3359,17 +2951,18 @@ export default function App() {
     }
     if (loggedInRole === "teacher") {
       // Tambahkan pelemparan parameter loggedInId dan loggedInName di sini
-      if (page === "availability") return <TeacherAvailability loggedInId={loggedInId} />;
+      if (page === "availability") return <TeacherAvailability loggedInId={loggedInId} db={db} />;
       if (page === "schedule") {
         return <TeacherSchedule loggedInId={loggedInId} db={db} />;
       }
       return <TeacherDashboard loggedInId={loggedInId} loggedInName={loggedInName} />;
     }
+   // Bagian Router Halaman Admin di App.tsx Anda
     if (page === "students") return <AdminStudents search={globalSearch} />;
     if (page === "teachers") return <AdminTeachers search={globalSearch} />;
     if (page === "admins") return <AdminAdmins search={globalSearch} />;
     if (page === "schedule") {
-      return <TeacherSchedule loggedInId={loggedInId} db={db} />;
+      return <AdminManageSchedule search={globalSearch} />; // SINKRONKAN DISINI
     }
     return <AdminDashboard />;
   }

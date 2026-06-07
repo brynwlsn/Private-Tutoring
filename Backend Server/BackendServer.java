@@ -37,6 +37,17 @@ public class BackendServer {
         server.createContext("/api/jadwal", new GetJadwalHandler());
         server.createContext("/api/admin", new GetAdminHandler());
         server.createContext("/api/les/guru", new GetTeacherLessonsHandler());
+        server.createContext("/api/jadwal/add", new PostJadwalHandler());
+
+        // Admin Endpoints
+        server.createContext("/api/admin/stats", new AdminStatsHandler());
+        server.createContext("/api/admin/students", new AdminStudentsHandler());
+        server.createContext("/api/admin/teachers", new AdminTeachersHandler());
+        server.createContext("/api/admin/admins", new AdminAdminsHandler());
+        server.createContext("/api/admin/schedules", new AdminScheduleHandler());
+        server.createContext("/api/admin/schedules/update", new UpdateScheduleHandler());
+        server.createContext("/api/admin/schedules/delete", new DeleteScheduleHandler());
+        server.createContext("/api/admin/options", new AdminOptionsHandler()); // Untuk dropdown edit
 
         server.setExecutor(null);
         System.out.println("Server Back-End Java jalan di: http://localhost:8080");
@@ -265,7 +276,7 @@ public class BackendServer {
             }
         }
     }
-    
+
     static class GetTeacherLessonsHandler implements HttpHandler {
         @Override
         public void handle(HttpExchange exchange) throws IOException {
@@ -430,6 +441,275 @@ public class BackendServer {
             } catch (Exception e) {
                 e.printStackTrace();
                 kirimResponJSON(exchange, 500, "[]");
+            }
+        }
+    }
+
+    // 1. Handler Statistik Dashboard Admin
+    static class AdminStatsHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            exchange.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(204, -1);
+                return;
+            }
+
+            try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD)) {
+                String sql = "SELECT " +
+                        "(SELECT COUNT(*) FROM Siswa) as total_siswa, " +
+                        "(SELECT COUNT(*) FROM Guru) as total_guru, " +
+                        "(SELECT COUNT(*) FROM Admin) as total_admin, " +
+                        "(SELECT COUNT(*) FROM Detail_Daftar_Les) as total_les";
+                try (PreparedStatement ps = conn.prepareStatement(sql); ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        String json = String.format(
+                                "{\"total_siswa\":%d,\"total_guru\":%d,\"total_admin\":%d,\"total_les\":%d}",
+                                rs.getInt("total_siswa"), rs.getInt("total_guru"), rs.getInt("total_admin"),
+                                rs.getInt("total_les"));
+                        kirimResponJSON(exchange, 200, json);
+                    }
+                }
+            } catch (Exception e) {
+                kirimResponJSON(exchange, 500, "{\"error\":\"" + escapeJson(e.getMessage()) + "\"}");
+            }
+        }
+    }
+
+    // 2. Handler Ambil Data Siswa
+    static class AdminStudentsHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            exchange.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
+            try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD);
+                    PreparedStatement ps = conn.prepareStatement("SELECT id_siswa, nama, email, no_hp FROM Siswa");
+                    ResultSet rs = ps.executeQuery()) {
+                StringBuilder sb = new StringBuilder("[");
+                while (rs.next()) {
+                    if (sb.length() > 1)
+                        sb.append(",");
+                    sb.append(String.format("{\"id\":%d,\"nama\":\"%s\",\"email\":\"%s\",\"no_hp\":\"%s\"}",
+                            rs.getInt("id_siswa"), escapeJson(rs.getString("nama")), escapeJson(rs.getString("email")),
+                            escapeJson(rs.getString("no_hp"))));
+                }
+                sb.append("]");
+                kirimResponJSON(exchange, 200, sb.toString());
+            } catch (Exception e) {
+                kirimResponJSON(exchange, 500, "{\"error\":\"" + escapeJson(e.getMessage()) + "\"}");
+            }
+        }
+    }
+
+    // 3. Handler Ambil Data Guru
+    static class AdminTeachersHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            exchange.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
+            try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD);
+                    PreparedStatement ps = conn.prepareStatement("SELECT id_guru, nama, email, no_hp FROM Guru");
+                    ResultSet rs = ps.executeQuery()) {
+                StringBuilder sb = new StringBuilder("[");
+                while (rs.next()) {
+                    if (sb.length() > 1)
+                        sb.append(",");
+                    sb.append(String.format("{\"id\":%d,\"nama\":\"%s\",\"email\":\"%s\",\"no_hp\":\"%s\"}",
+                            rs.getInt("id_guru"), escapeJson(rs.getString("nama")), escapeJson(rs.getString("email")),
+                            escapeJson(rs.getString("no_hp"))));
+                }
+                sb.append("]");
+                kirimResponJSON(exchange, 200, sb.toString());
+            } catch (Exception e) {
+                kirimResponJSON(exchange, 500, "{\"error\":\"" + escapeJson(e.getMessage()) + "\"}");
+            }
+        }
+    }
+
+    // 4. Handler Ambil Data Admin
+    static class AdminAdminsHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            exchange.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
+            try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD);
+                    PreparedStatement ps = conn.prepareStatement("SELECT id_admin, nama, email, no_hp FROM Admin");
+                    ResultSet rs = ps.executeQuery()) {
+                StringBuilder sb = new StringBuilder("[");
+                while (rs.next()) {
+                    if (sb.length() > 1)
+                        sb.append(",");
+                    sb.append(String.format("{\"id\":%d,\"nama\":\"%s\",\"email\":\"%s\",\"no_hp\":\"%s\"}",
+                            rs.getInt("id_admin"), escapeJson(rs.getString("nama")), escapeJson(rs.getString("email")),
+                            escapeJson(rs.getString("no_hp"))));
+                }
+                sb.append("]");
+                kirimResponJSON(exchange, 200, sb.toString());
+            } catch (Exception e) {
+                kirimResponJSON(exchange, 500, "{\"error\":\"" + escapeJson(e.getMessage()) + "\"}");
+            }
+        }
+    }
+
+    // 5. Handler Ambil Semua Jadwal Les Aktif (Manage Schedule)
+    static class AdminScheduleHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            exchange.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
+            String sql = "SELECT d.id_detail, d.id_les, d.id_jadwal, d.id_mapel, d.id_jenjang, " +
+                    "s.nama AS nama_siswa, g.nama AS nama_guru, m.nama_mapel, j.nama_jenjang, " +
+                    "jkg.hari, jkg.jam_mulai, jkg.jam_selesai " +
+                    "FROM Detail_Daftar_Les d " +
+                    "JOIN Les l ON d.id_les = l.id_les " +
+                    "JOIN Siswa s ON l.id_siswa = s.id_siswa " +
+                    "JOIN Jadwal_Kesediaan_Guru jkg ON d.id_jadwal = jkg.id_jadwal " +
+                    "JOIN Guru g ON jkg.id_guru = g.id_guru " +
+                    "JOIN Mata_pelajaran m ON d.id_mapel = m.id_mapel " +
+                    "JOIN Jenjang j ON d.id_jenjang = j.id_jenjang";
+            try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD);
+                    PreparedStatement ps = conn.prepareStatement(sql);
+                    ResultSet rs = ps.executeQuery()) {
+                StringBuilder sb = new StringBuilder("[");
+                while (rs.next()) {
+                    if (sb.length() > 1)
+                        sb.append(",");
+                    sb.append(String.format(
+                            "{\"id_detail\":%d,\"id_les\":%d,\"id_jadwal\":%d,\"id_mapel\":%d,\"id_jenjang\":%d," +
+                                    "\"nama_siswa\":\"%s\",\"nama_guru\":\"%s\",\"nama_mapel\":\"%s\",\"nama_jenjang\":\"%s\","
+                                    +
+                                    "\"hari\":\"%s\",\"jam_mulai\":\"%s\",\"jam_selesai\":\"%s\"}",
+                            rs.getInt("id_detail"), rs.getInt("id_les"), rs.getInt("id_jadwal"), rs.getInt("id_mapel"),
+                            rs.getInt("id_jenjang"),
+                            escapeJson(rs.getString("nama_siswa")), escapeJson(rs.getString("nama_guru")),
+                            escapeJson(rs.getString("nama_mapel")),
+                            escapeJson(rs.getString("nama_jenjang")), escapeJson(rs.getString("hari")),
+                            rs.getString("jam_mulai"), rs.getString("jam_selesai")));
+                }
+                sb.append("]");
+                kirimResponJSON(exchange, 200, sb.toString());
+            } catch (Exception e) {
+                kirimResponJSON(exchange, 500, "{\"error\":\"" + escapeJson(e.getMessage()) + "\"}");
+            }
+        }
+    }
+
+    // 6. Handler Update Jadwal Les oleh Admin
+    static class UpdateScheduleHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            exchange.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
+            exchange.getResponseHeaders().add("Access-Control-Allow-Headers", "Content-Type");
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(204, -1);
+                return;
+            }
+
+            try {
+                String body = new BufferedReader(new InputStreamReader(exchange.getRequestBody())).lines()
+                        .collect(Collectors.joining("\n"));
+
+                // PERBAIKAN DI SINI: getJsonValue diganti menjadi ambilNilaiJSON
+                int idDetail = Integer.parseInt(ambilNilaiJSON(body, "id_detail"));
+                int idJadwal = Integer.parseInt(ambilNilaiJSON(body, "id_jadwal"));
+                int idMapel = Integer.parseInt(ambilNilaiJSON(body, "id_mapel"));
+                int idJenjang = Integer.parseInt(ambilNilaiJSON(body, "id_jenjang"));
+
+                try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD);
+                        PreparedStatement ps = conn.prepareStatement(
+                                "UPDATE Detail_Daftar_Les SET id_jadwal = ?, id_mapel = ?, id_jenjang = ? WHERE id_detail = ?")) {
+                    ps.setInt(1, idJadwal);
+                    ps.setInt(2, idMapel);
+                    ps.setInt(3, idJenjang);
+                    ps.setInt(4, idDetail);
+                    ps.executeUpdate();
+                    kirimResponJSON(exchange, 200, "{\"message\":\"Jadwal berhasil diperbarui!\"}");
+                }
+            } catch (Exception e) {
+                kirimResponJSON(exchange, 500, "{\"error\":\"" + escapeJson(e.getMessage()) + "\"}");
+            }
+        }
+    }
+
+    // 7. Handler Hapus Jadwal Les oleh Admin
+    static class DeleteScheduleHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            exchange.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
+            exchange.getResponseHeaders().add("Access-Control-Allow-Headers", "Content-Type");
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(204, -1);
+                return;
+            }
+
+            try {
+                String body = new BufferedReader(new InputStreamReader(exchange.getRequestBody())).lines()
+                        .collect(Collectors.joining("\n"));
+
+                // PERBAIKAN DI SINI: getJsonValue diganti menjadi ambilNilaiJSON
+                int idDetail = Integer.parseInt(ambilNilaiJSON(body, "id_detail"));
+
+                try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD);
+                        PreparedStatement ps = conn
+                                .prepareStatement("DELETE FROM Detail_Daftar_Les WHERE id_detail = ?")) {
+                    ps.setInt(1, idDetail);
+                    ps.executeUpdate();
+                    kirimResponJSON(exchange, 200, "{\"message\":\"Jadwal les berhasil dihapus!\"}");
+                }
+            } catch (Exception e) {
+                kirimResponJSON(exchange, 500, "{\"error\":\"" + escapeJson(e.getMessage()) + "\"}");
+            }
+        }
+    }
+
+    // 8. Handler Pilihan Dropdown Terintegrasi untuk Keperluan Edit Form
+    static class AdminOptionsHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            exchange.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
+            try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD)) {
+                // Ambil Mapel
+                StringBuilder mapelSb = new StringBuilder("[");
+                try (PreparedStatement ps = conn.prepareStatement("SELECT id_mapel, nama_mapel FROM Mata_pelajaran");
+                        ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        if (mapelSb.length() > 1)
+                            mapelSb.append(",");
+                        mapelSb.append(String.format("{\"id\":%d,\"nama\":\"%s\"}", rs.getInt("id_mapel"),
+                                escapeJson(rs.getString("nama_mapel"))));
+                    }
+                }
+                mapelSb.append("]");
+
+                // Ambil Jenjang
+                StringBuilder jenjangSb = new StringBuilder("[");
+                try (PreparedStatement ps = conn.prepareStatement("SELECT id_jenjang, nama_jenjang FROM Jenjang");
+                        ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        if (jenjangSb.length() > 1)
+                            jenjangSb.append(",");
+                        jenjangSb.append(String.format("{\"id\":%d,\"nama\":\"%s\"}", rs.getInt("id_jenjang"),
+                                escapeJson(rs.getString("nama_jenjang"))));
+                    }
+                }
+                jenjangSb.append("]");
+
+                // Ambil Seluruh Jadwal Slot Guru yang Tersedia
+                StringBuilder jadwalSb = new StringBuilder("[");
+                String jSql = "SELECT j.id_jadwal, j.hari, j.jam_mulai, j.jam_selesai, g.nama FROM Jadwal_Kesediaan_Guru j JOIN Guru g ON j.id_guru = g.id_guru";
+                try (PreparedStatement ps = conn.prepareStatement(jSql); ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        if (jadwalSb.length() > 1)
+                            jadwalSb.append(",");
+                        jadwalSb.append(String.format(
+                                "{\"id_jadwal\":%d,\"hari\":\"%s\",\"jam_mulai\":\"%s\",\"jam_selesai\":\"%s\",\"nama_guru\":\"%s\"}",
+                                rs.getInt("id_jadwal"), rs.getString("hari"), rs.getString("jam_mulai"),
+                                rs.getString("jam_selesai"), escapeJson(rs.getString("nama"))));
+                    }
+                }
+                jadwalSb.append("]");
+
+                String fullJson = String.format("{\"mapel\":%s,\"jenjang\":%s,\"jadwal_guru\":%s}", mapelSb.toString(),
+                        jenjangSb.toString(), jadwalSb.toString());
+                kirimResponJSON(exchange, 200, fullJson);
+            } catch (Exception e) {
+                kirimResponJSON(exchange, 500, "{\"error\":\"" + escapeJson(e.getMessage()) + "\"}");
             }
         }
     }
@@ -813,6 +1093,42 @@ public class BackendServer {
                 } catch (Exception e) {
                     e.printStackTrace();
                     kirimResponJSON(exchange, 500, "[]");
+                }
+            }
+        }
+    }
+
+    static class PostJadwalHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            aturCORS(exchange);
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(204, -1);
+                return;
+            }
+            if ("POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                String jsonInput = bacaBody(exchange);
+                try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD)) {
+                    int idJadwal = Integer.parseInt(ambilNilaiJSON(jsonInput, "id"));
+                    String hari = ambilNilaiJSON(jsonInput, "hari");
+                    String jamMulai = ambilNilaiJSON(jsonInput, "jam_mulai");
+                    String jamSelesai = ambilNilaiJSON(jsonInput, "jam_selesai");
+                    int idGuru = Integer.parseInt(ambilNilaiJSON(jsonInput, "id_guru"));
+
+                    // id_admin diset 1 (default) karena ini diinput langsung oleh guru
+                    String sql = "INSERT INTO Jadwal_Kesediaan_Guru (id_jadwal, hari, jam_mulai, jam_selesai, id_guru, id_admin) VALUES (?, ?, ?, ?, ?, 1)";
+                    PreparedStatement ps = conn.prepareStatement(sql);
+                    ps.setInt(1, idJadwal);
+                    ps.setString(2, hari);
+                    ps.setString(3, jamMulai);
+                    ps.setString(4, jamSelesai);
+                    ps.setInt(5, idGuru);
+                    ps.executeUpdate();
+
+                    kirimResponJSON(exchange, 200, "{\"status\":\"sukses\"}");
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    kirimResponJSON(exchange, 400, "{\"status\":\"gagal\", \"pesan\":\"" + e.getMessage() + "\"}");
                 }
             }
         }

@@ -22,24 +22,24 @@ INSERT INTO Mata_pelajaran (id_mapel, nama_mapel) VALUES
 
 -- 3. Admin (Sudah 5 data)
 INSERT INTO Admin (id_admin, nama, email, no_hp, password) VALUES 
-(1, 'Reza Firmansyah', 'reza@educapy.com', '081300000001', 'Reza!2026'),
-(2, 'Sarah Wijaya', 'sarah@educapy.com', '081300000002', 'Sarah#99'),
-(3, 'Dwi Cahyono', 'dwi@educapy.com', '081300000003', 'DwiCahyono_88'),
-(4, 'Lestari Putri', 'lestari@educapy.com', '081300000004', 'Lestari$2026'),
-(5, 'Bambang Sudibyo', 'bambang@educapy.com', '081300000005', 'Bambang_Pass!');
+(1, 'Dr. Ayu Rahmawati', 'ayu@admin.id', '081300000001', 'admin123'),
+(2, 'Citra Dewi, M.Si', 'citra@admin.id', '081300000002', 'admin123'),
+(3, 'Eko Prasetyo, M.T', 'eko@admin.id', '081300000003', 'admin123'),
+(4, 'Gita Gutawa, S.S', 'gita@admin.id', '081300000004', 'admin123'),
+(5, 'Bambang Sudibyo', 'bambang@educapy.com', '081300000005', 'admin123');
 
 -- 4. Guru (Ditambah 5 agar menjadi 10 data)
 INSERT INTO Guru (id_guru, nama, email, no_hp, password, id_admin) VALUES 
 (1, 'Dr. Ayu Rahmawati', 'ayu@tutor.id', '081234567801', 'Ayu_Math2026', 1),
-(2, 'Budi Santoso, S.Pd', 'budi@tutor.id', '081234567802', 'BudiSantoso_77', 1),
+(2, 'Budi Santoso, S.Pd', 'budi@tutor.id', '081234567802', 'BudiSantoso_77', NULL),
 (3, 'Citra Dewi, M.Si', 'citra@tutor.id', '081234567803', 'CitraDewi#Msi', 2),
-(4, 'Dian Pratama, S.T', 'dian@tutor.id', '081234567804', 'DianP_ST2026', 2),
+(4, 'Dian Pratama, S.T', 'dian@tutor.id', '081234567804', 'DianP_ST2026', NULL),
 (5, 'Eko Prasetyo, M.T', 'eko@tutor.id', '081234567805', 'EkoPrasetyo_88', 3),
-(6, 'Fahri Hamzah, S.Kom', 'fahri@tutor.id', '081234567806', 'Fahri_Kom99', 3),
+(6, 'Fahri Hamzah, S.Kom', 'fahri@tutor.id', '081234567806', 'Fahri_Kom99', NULL),
 (7, 'Gita Gutawa, S.S', 'gita@tutor.id', '081234567807', 'Gita_SS2026', 4),
-(8, 'Hadi Mulyadi, S.Pd', 'hadi@tutor.id', '081234567808', 'Hadi_Pd88', 4),
-(9, 'Intan Permata, M.Pd', 'intan@tutor.id', '081234567809', 'Intan_Mpd99', 5),
-(10, 'Joko Anwar, S.Si', 'joko@tutor.id', '081234567810', 'Joko_Si2026', 5);
+(8, 'Hadi Mulyadi, S.Pd', 'hadi@tutor.id', '081234567808', 'Hadi_Pd88', NULL),
+(9, 'Intan Permata, M.Pd', 'intan@tutor.id', '081234567809', 'Intan_Mpd99', NULL),
+(10, 'Joko Anwar, S.Si', 'joko@tutor.id', '081234567810', 'Joko_Si2026', NULL);
 
 -- 5. Siswa (Ditambah 5 agar menjadi 10 data)
 INSERT INTO Siswa (id_siswa, id_jenjang, nama, email, no_hp, tgl_lahir, jenis_kelamin, password) VALUES 
