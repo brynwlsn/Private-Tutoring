@@ -227,7 +227,7 @@ const JADWAL: JadwalKesediaan[] = [
     hari: "Monday",
     jam_mulai: "14:00",
     jam_selesai: "15:00",
-    status: "tersedia",
+    status: "available",
     id_admin: 1,
   },
   {
@@ -236,7 +236,7 @@ const JADWAL: JadwalKesediaan[] = [
     hari: "Monday",
     jam_mulai: "15:00",
     jam_selesai: "16:00",
-    status: "tersedia",
+    status: "available",
     id_admin: 1,
   },
   {
@@ -245,7 +245,7 @@ const JADWAL: JadwalKesediaan[] = [
     hari: "Wednesday",
     jam_mulai: "13:00",
     jam_selesai: "14:00",
-    status: "tersedia",
+    status: "available",
     id_admin: 1,
   },
   {
@@ -254,7 +254,7 @@ const JADWAL: JadwalKesediaan[] = [
     hari: "Tuesday",
     jam_mulai: "10:00",
     jam_selesai: "11:00",
-    status: "tersedia",
+    status: "available",
     id_admin: 1,
   },
   {
@@ -263,7 +263,7 @@ const JADWAL: JadwalKesediaan[] = [
     hari: "Thursday",
     jam_mulai: "08:00",
     jam_selesai: "09:00",
-    status: "terisi",
+    status: "filled",
     id_admin: 1,
   },
 ];
@@ -739,7 +739,7 @@ function BookLesson({ loggedInId, setActiveLessons, db }: any) {
   const guruJadwal = useMemo<JadwalKesediaan[]>(() => {
     if (selGurus.length === 0) return [];
     return localJadwal.filter( // <--- PERUBAHAN UTAMANYA DI SINI
-      (j: JadwalKesediaan) => selGurus.includes(j.id_guru) && j.status === "tersedia",
+      (j: JadwalKesediaan) => selGurus.includes(j.id_guru) && j.status === "available",
     );
   }, [selGurus, localJadwal]); 
 
@@ -1339,7 +1339,7 @@ function TeacherAvailability({ loggedInId, db }: any) {
         jam_selesai: slotEnd,
         id_guru: guruId,
         id_admin: 1,
-        status: "tersedia",
+        status: "available",
       });
       start += 60;
     }
@@ -1455,7 +1455,7 @@ function TeacherAvailability({ loggedInId, db }: any) {
                   </div>
                   <Badge
                     label={j.status}
-                    variant={j.status === "tersedia" ? "success" : "warning"}
+                    variant={j.status === "available" ? "success" : "warning"}
                   />
                 </div>
                 <button
@@ -1729,7 +1729,7 @@ function AdminStudents({ search, db }: any) {
       .then((data) => {
         if (Array.isArray(data)) setStudents(data);
       })
-      .catch((err) => console.error("Gagal memuat siswa:", err));
+      .catch((err) => console.error("Failed to load students:", err));
   };
 
   useEffect(() => {
@@ -1766,7 +1766,7 @@ function AdminStudents({ search, db }: any) {
   }
 
   function handleDelete(id: number) {
-    if (!window.confirm("Apakah Anda yakin ingin menghapus Siswa ini?")) return;
+    if (!window.confirm("Are you sure you want to delete this Student?")) return;
 
     fetch("http://localhost:8080/api/admin/students/delete", {
       method: "POST",
@@ -1800,13 +1800,13 @@ function AdminStudents({ search, db }: any) {
         .then((res) => res.json())
         .then((data) => {
           if (data.status === "sukses") {
-            alert("Siswa berhasil ditambahkan ke Database!");
+            alert("Student successfully added to Database!");
             loadData();
           } else {
-            alert("Gagal menambahkan siswa: " + data.pesan);
+            alert("Failed to add student: " + data.pesan);
           }
         })
-        .catch(() => alert("Gagal menghubungi server."));
+        .catch(() => alert("Failed to contact server."));
 
     } else if (drawer === "edit") {
       fetch("http://localhost:8080/api/admin/students/update", {
@@ -2015,7 +2015,7 @@ function AdminTeachers({ search, db }: any) {
   }
 
   function handleDelete(id: number) {
-    if (!window.confirm("Apakah Anda yakin ingin menghapus Guru ini?")) return;
+    if (!window.confirm("Are you sure you want to delete this Teacher?")) return;
 
     fetch("http://localhost:8080/api/admin/teachers/delete", {
       method: "POST",
@@ -2056,13 +2056,13 @@ function AdminTeachers({ search, db }: any) {
         .then((res) => res.json())
         .then((data) => {
           if (data.status === "sukses") {
-            alert("Guru berhasil ditambahkan ke Database beserta Keahliannya!");
+            alert("Teacher successfully added to Database along with his/her Skills!");
             loadData();
           } else {
-            alert("Gagal menambahkan guru: " + data.pesan);
+            alert("Failed to add teacher: " + data.pesan);
           }
         })
-        .catch(() => alert("Gagal menghubungi server."));
+        .catch(() => alert("Failed to contact server."));
 
     } else if (drawer === "edit") {
       // BAGIAN BARU: Fungsi Edit dikirim ke API Update Java
@@ -2080,13 +2080,13 @@ function AdminTeachers({ search, db }: any) {
         .then((res) => res.json())
         .then((data) => {
           if (data.status === "sukses") {
-            alert("Data Guru berhasil diperbarui!");
+            alert("Teacher data has been updated successfully!");
             loadData(); // Langsung perbarui tabel di layar
           } else {
-            alert("Gagal update guru: " + data.message);
+            alert("Failed to update teacher: " + data.message);
           }
         })
-        .catch(() => alert("Gagal menghubungi server."));
+        .catch(() => alert("Failed to contact server."));
     }
     setDrawer(null);
   }
@@ -2184,7 +2184,7 @@ function AdminTeachers({ search, db }: any) {
               <Input label="Phone Number" value={form.no_hp ?? ""} onChange={(v: string) => setForm((p: any) => ({ ...p, no_hp: v }))} required />
 
               <div className="pt-2 border-t border-slate-100">
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Expertise (Bisa Tambah &gt; 1)</p>
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Expertise (Can Add &gt; 1)</p>
                 <div className="space-y-3">
                   <div className="flex gap-2 items-end">
                     <div className="flex-1">
@@ -2304,7 +2304,7 @@ function AdminManageSchedule({ search, db }: any) {
 
   // FUNGSI HAPUS
   const handleDelete = (id_jadwal: number) => {
-    if (!window.confirm("Yakin ingin menghapus slot ketersediaan ini?")) return;
+    if (!window.confirm("Are you sure you want to delete this availability slot?")) return;
     fetch("http://localhost:8080/api/admin/slots/delete", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -2312,10 +2312,10 @@ function AdminManageSchedule({ search, db }: any) {
     })
       .then(res => res.json())
       .then(data => {
-        alert(data.message || "Slot terhapus!");
+        alert(data.message || "Slot deleted!");
         loadData();
       })
-      .catch(() => alert("Gagal terhubung ke Backend Java!"));
+      .catch(() => alert("Failed to connect to Backend Java!"));
   };
 
   return (
@@ -2342,7 +2342,7 @@ function AdminManageSchedule({ search, db }: any) {
             {loading ? (
               <tr><td colSpan={4} className="text-center py-5 text-slate-400">Loading data...</td></tr>
             ) : filtered.length === 0 ? (
-              <tr><td colSpan={4} className="text-center py-5 text-slate-400">Belum ada slot tersedia.</td></tr>
+              <tr><td colSpan={4} className="text-center py-5 text-slate-400">Belum ada slot available.</td></tr>
             ) : filtered.map((s) => (
               <tr key={s.id_jadwal} className="border-b hover:bg-slate-50 transition-colors">
                 <td className="px-5 py-3 font-medium text-slate-800">{s.nama_guru}</td>
@@ -2357,7 +2357,7 @@ function AdminManageSchedule({ search, db }: any) {
                   ) : (
                     <>
                       <Button size="sm" onClick={() => { setForm(s); setDrawer("edit"); }}>Edit</Button>
-                      <Button size="sm" variant="danger" onClick={() => handleDelete(s.id_jadwal)}>Hapus</Button>
+                      <Button size="sm" variant="danger" onClick={() => handleDelete(s.id_jadwal)}>Delete</Button>
                     </>
                   )}
                 </td>
@@ -2370,12 +2370,12 @@ function AdminManageSchedule({ search, db }: any) {
       {drawer && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
           <div className="bg-white p-6 rounded-xl w-96 shadow-xl space-y-4">
-            <h2 className="font-bold text-lg">{drawer === "add" ? "Tambah Slot Guru" : "Edit Slot: " + form.nama_guru}</h2>
+            <h2 className="font-bold text-lg">{drawer === "add" ? "Add Teacher Slot" : "Edit Slot: " + form.nama_guru}</h2>
 
             {/* Input Nama Guru hanya muncul saat Tambah Baru */}
             {drawer === "add" && (
               <Select
-                label="Pilih Guru"
+                label="Choose Teacher"
                 value={String(form.id_guru ?? "")}
                 onChange={(v) => setForm({ ...form, id_guru: Number(v) })}
                 options={(db?.guru || []).map((g: any) => ({ value: String(g.id), label: g.nama }))}
@@ -2384,7 +2384,7 @@ function AdminManageSchedule({ search, db }: any) {
             )}
 
             <Select
-              label="Hari"
+              label="Day"
               value={form.hari ?? ""}
               onChange={(v) => setForm({ ...form, hari: v })}
               options={HARI.map((h: string) => ({ value: h, label: h }))}
@@ -2627,28 +2627,28 @@ function AdminDashboard() {
         <div className="p-4 bg-white rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
           <div className="p-3 bg-blue-50 text-blue-600 rounded-lg"><Users size={24} /></div>
           <div>
-            <p className="text-sm text-gray-500 font-medium">Total Siswa</p>
+            <p className="text-sm text-gray-500 font-medium">Number of Students</p>
             <p className="text-2xl font-bold text-gray-800">{stats.total_siswa}</p>
           </div>
         </div>
         <div className="p-4 bg-white rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
           <div className="p-3 bg-green-50 text-green-600 rounded-lg"><GraduationCap size={24} /></div>
           <div>
-            <p className="text-sm text-gray-500 font-medium">Total Guru</p>
+            <p className="text-sm text-gray-500 font-medium">Number of Teachers</p>
             <p className="text-2xl font-bold text-gray-800">{stats.total_guru}</p>
           </div>
         </div>
         <div className="p-4 bg-white rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
           <div className="p-3 bg-purple-50 text-purple-600 rounded-lg"><Shield size={24} /></div>
           <div>
-            <p className="text-sm text-gray-500 font-medium">Total Admin</p>
+            <p className="text-sm text-gray-500 font-medium">Number of Admins</p>
             <p className="text-2xl font-bold text-gray-800">{stats.total_admin}</p>
           </div>
         </div>
         <div className="p-4 bg-white rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
           <div className="p-3 bg-orange-50 text-orange-600 rounded-lg"><BookOpen size={24} /></div>
           <div>
-            <p className="text-sm text-gray-500 font-medium">Jadwal Les</p>
+            <p className="text-sm text-gray-500 font-medium">Number of Tutoring Schedules</p>
             <p className="text-2xl font-bold text-gray-800">{stats.total_les}</p>
           </div>
         </div>
@@ -2696,7 +2696,7 @@ function AdminSchedules({ search }: { search: string }) {
           hari: form.hari!,
           jam_mulai: form.jam_mulai!,
           jam_selesai: form.jam_selesai!,
-          status: "tersedia",
+          status: "available",
           id_admin: 1,
         },
       ]);
@@ -2766,7 +2766,7 @@ function AdminSchedules({ search }: { search: string }) {
                 <td className="px-5 py-3.5">
                   <Badge
                     label={r.status}
-                    variant={r.status === "tersedia" ? "success" : "warning"}
+                    variant={r.status === "available" ? "success" : "warning"}
                   />
                 </td>
                 <td className="px-5 py-3.5">
@@ -2929,7 +2929,7 @@ function LoginPage({
         );
       }
     } catch (err) {
-      setError("Tidak bisa terhubung ke server. Pastikan Java sudah jalan.");
+      setError("Unable to connect to server. Make sure Java is running.");
     } finally {
       setLoading(false);
     }
@@ -3286,7 +3286,7 @@ function RegisterPage({ onGoLogin, db }: { onGoLogin: () => void, db: any }) {
               )}
               {role === "teacher" && (
                 <div className="pt-2 border-t border-slate-100">
-                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Expertise (Bisa Tambah &gt; 1)</p>
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Expertise (Can Add &gt; 1)</p>
                   <div className="space-y-3">
                     <div className="flex gap-2 items-end">
                       <div className="flex-1">
@@ -3378,7 +3378,7 @@ function AdminAdmins({ search, db }: any) {
   }
 
   function handleDelete(id: number) {
-    if (!window.confirm("Apakah Anda yakin ingin menghapus Admin ini?")) return;
+    if (!window.confirm("Are you sure you want to delete this Admin?")) return;
 
     fetch("http://localhost:8080/api/admin/admins/delete", {
       method: "POST",
@@ -3409,13 +3409,13 @@ function AdminAdmins({ search, db }: any) {
         .then((res) => res.json())
         .then((data) => {
           if (data.status === "sukses") {
-            alert("Admin berhasil ditambahkan ke Database!");
+            alert("Admin successfully added to Database!");
             loadData();
           } else {
-            alert("Gagal menambahkan admin: " + data.pesan);
+            alert("Failed to add admin: " + data.pesan);
           }
         })
-        .catch(() => alert("Gagal menghubungi server."));
+        .catch(() => alert("Failed to contact server."));
 
     } else if (drawer === "edit") {
       fetch("http://localhost:8080/api/admin/admins/update", {
@@ -3431,13 +3431,13 @@ function AdminAdmins({ search, db }: any) {
         .then((res) => res.json())
         .then((data) => {
           if (data.status === "sukses") {
-            alert("Data Admin berhasil diperbarui!");
+            alert("Admin data successfully updated!");
             loadData();
           } else {
-            alert("Gagal update admin: " + data.message);
+            alert("Failed to update admin: " + data.message);
           }
         })
-        .catch(() => alert("Gagal menghubungi server."));
+        .catch(() => alert("Failed to contact server."));
     }
     setDrawer(null);
   }
@@ -3559,7 +3559,7 @@ export default function App() {
           // Menyimpan data les dari backend langsung ke state
           setActiveLessons(data);
         })
-        .catch((err) => console.error("Gagal mengambil data les siswa:", err));
+        .catch((err) => console.error("Failed to retrieve student tutoring data:", err));
     }
   }, [loggedInId, loggedInRole]);
 

@@ -375,7 +375,7 @@ public class BackendServer {
                         "CONVERT(varchar(5), j.jam_mulai, 108) AS jam_mulai, " +
                         "CONVERT(varchar(5), j.jam_selesai, 108) AS jam_selesai, " +
                         "j.id_guru, j.id_admin, " +
-                        "CASE WHEN COUNT(d.id_jadwal) > 0 THEN 'terisi' ELSE 'tersedia' END AS status " +
+                        "CASE WHEN COUNT(d.id_jadwal) > 0 THEN 'filled' ELSE 'available' END AS status " +
                         "FROM Jadwal_Kesediaan_Guru j " +
                         "LEFT JOIN Detail_Daftar_Les d ON j.id_jadwal = d.id_jadwal " +
                         "GROUP BY j.id_jadwal, j.hari, j.jam_mulai, j.jam_selesai, j.id_guru, j.id_admin " +
@@ -1028,7 +1028,7 @@ public class BackendServer {
                             ResultSet rsJadwal = pstmtCek.executeQuery();
                             if (rsJadwal.next() && rsJadwal.getInt("total_bentrok") > 0) {
                                 kirimResponJSON(exchange, 400,
-                                        "{\"status\":\"gagal\", \"pesan\":\"Slot jadwal ini sudah terisi pada rentang tanggal tersebut!\"}");
+                                        "{\"status\":\"gagal\", \"pesan\":\"Slot jadwal ini sudah filled pada rentang tanggal tersebut!\"}");
                                 return;
                             }
                         }
@@ -1220,7 +1220,7 @@ public class BackendServer {
                         }
 
                         kirimResponJSON(exchange, 200,
-                                "{\"status\":\"sukses\", \"message\":\"Guru berhasil dihapus dari Database!\"}");
+                                "{\"status\":\"sukses\", \"message\":\"Teacher successfully removed from Database!\"}");
                     }
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -1228,10 +1228,10 @@ public class BackendServer {
                     // Cegah penghapusan jika guru sudah punya murid yang les (Mencegah SQL Crash)
                     if (errMsg.contains("REFERENCE") || errMsg.contains("FOREIGN KEY")) {
                         kirimResponJSON(exchange, 400,
-                                "{\"status\":\"gagal\", \"pesan\":\"Tidak bisa menghapus: Guru ini masih terikat dengan riwayat les siswa.\"}");
+                                "{\"status\":\"gagal\", \"pesan\":\"Cannot delete: This teacher is still tied to the student's tutoring history.\"}");
                     } else {
                         kirimResponJSON(exchange, 500,
-                                "{\"status\":\"gagal\", \"pesan\":\"Terjadi kesalahan server.\"}");
+                                "{\"status\":\"gagal\", \"pesan\":\"A server error occurred.\"}");
                     }
                 }
             }
@@ -1297,7 +1297,7 @@ public class BackendServer {
                             }
                         }
                         kirimResponJSON(exchange, 200,
-                                "{\"status\":\"sukses\", \"message\":\"Data Guru berhasil diperbarui!\"}");
+                                "{\"status\":\"sukses\", \"message\":\"Teacher data has been updated successfully!\"}");
                     }
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -1330,7 +1330,7 @@ public class BackendServer {
                             ps.executeUpdate();
                         }
                         kirimResponJSON(exchange, 200,
-                                "{\"status\":\"sukses\", \"message\":\"Siswa berhasil dihapus dari Database!\"}");
+                                "{\"status\":\"sukses\", \"message\":\"Student successfully removed from Database!\"}");
                     }
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -1338,10 +1338,10 @@ public class BackendServer {
                     // Pencegahan jika siswa masih punya riwayat booking les
                     if (errMsg.contains("REFERENCE") || errMsg.contains("FOREIGN KEY")) {
                         kirimResponJSON(exchange, 400,
-                                "{\"status\":\"gagal\", \"pesan\":\"Tidak bisa menghapus: Siswa ini memiliki jadwal atau riwayat les aktif.\"}");
+                                "{\"status\":\"gagal\", \"pesan\":\"Cannot delete: This student has an active tutoring schedule or history.\"}");
                     } else {
                         kirimResponJSON(exchange, 500,
-                                "{\"status\":\"gagal\", \"pesan\":\"Terjadi kesalahan server.\"}");
+                                "{\"status\":\"gagal\", \"pesan\":\"A server error occurred.\"}");
                     }
                 }
             }
@@ -1394,7 +1394,7 @@ public class BackendServer {
                             ps.executeUpdate();
                         }
                         kirimResponJSON(exchange, 200,
-                                "{\"status\":\"sukses\", \"message\":\"Data Siswa berhasil diperbarui!\"}");
+                                "{\"status\":\"sukses\", \"message\":\"Student Data successfully updated!\"}");
                     }
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -1427,17 +1427,17 @@ public class BackendServer {
                             ps.executeUpdate();
                         }
                         kirimResponJSON(exchange, 200,
-                                "{\"status\":\"sukses\", \"message\":\"Admin berhasil dihapus dari Database!\"}");
+                                "{\"status\":\"sukses\", \"message\":\"Admin successfully removed from Database!\"}");
                     }
                 } catch (Exception e) {
                     e.printStackTrace();
                     String errMsg = e.getMessage();
                     if (errMsg.contains("REFERENCE") || errMsg.contains("FOREIGN KEY")) {
                         kirimResponJSON(exchange, 400,
-                                "{\"status\":\"gagal\", \"pesan\":\"Tidak bisa menghapus: Admin ini masih terikat dengan data jadwal atau guru.\"}");
+                                "{\"status\":\"gagal\", \"pesan\":\"Cannot delete: This admin is still bound to schedule or teacher data.\"}");
                     } else {
                         kirimResponJSON(exchange, 500,
-                                "{\"status\":\"gagal\", \"pesan\":\"Terjadi kesalahan server.\"}");
+                                "{\"status\":\"gagal\", \"pesan\":\"A server error occurred.\"}");
                     }
                 }
             }
@@ -1472,7 +1472,7 @@ public class BackendServer {
                             ps.executeUpdate();
                         }
                         kirimResponJSON(exchange, 200,
-                                "{\"status\":\"sukses\", \"message\":\"Data Admin berhasil diperbarui!\"}");
+                                "{\"status\":\"sukses\", \"message\":\"Admin data successfully updated!\"}");
                     }
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -1483,7 +1483,6 @@ public class BackendServer {
         }
     }
 
-    // Tambahkan Handler ini untuk mengambil semua slot ketersediaan guru
     // Tambahkan Handler ini untuk mengambil semua slot ketersediaan guru
     static class AdminSlotGuruHandler implements HttpHandler {
         @Override
@@ -1549,7 +1548,7 @@ public class BackendServer {
                         ps.setInt(4, idJadwal);
                         ps.executeUpdate();
                         kirimResponJSON(exchange, 200,
-                                "{\"status\":\"sukses\",\"message\":\"Slot waktu berhasil diubah!\"}");
+                                "{\"status\":\"sukses\",\"message\":\"Time slot changed successfully!\"}");
                     }
                 } catch (Exception e) {
                     kirimResponJSON(exchange, 500, "{\"error\":\"" + escapeJson(e.getMessage()) + "\"}");
@@ -1577,7 +1576,7 @@ public class BackendServer {
                         ps.setInt(1, idJadwal);
                         ps.executeUpdate();
                         kirimResponJSON(exchange, 200,
-                                "{\"status\":\"sukses\",\"message\":\"Slot waktu berhasil dihapus!\"}");
+                                "{\"status\":\"sukses\",\"message\":\"Time slot successfully deleted!\"}");
                     }
                 } catch (Exception e) {
                     kirimResponJSON(exchange, 500, "{\"error\":\"" + escapeJson(e.getMessage()) + "\"}");
