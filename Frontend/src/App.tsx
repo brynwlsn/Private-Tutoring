@@ -101,184 +101,6 @@ interface Les {
   jam_selesai?: string;
 }
 
-// ─── Mock Data ────────────────────────────────────────────────────────────────
-const JENJANG: Jenjang[] = [
-  { id: 1, nama: "SD" },
-  { id: 2, nama: "SMP" },
-  { id: 3, nama: "SMA" },
-];
-
-const MAPEL: Mapel[] = [
-  { id: 1, nama: "Mathematics" },
-  { id: 2, nama: "Indonesian" },
-  { id: 3, nama: "Science" },
-  { id: 4, nama: "English" },
-  { id: 5, nama: "Physics" },
-  { id: 6, nama: "Chemistry" },
-  { id: 7, nama: "Biology" },
-];
-
-const GURU: Guru[] = [
-  {
-    id: 1,
-    nama: "Dr. Ayu Rahmawati",
-    email: "ayu@tutor.id",
-    no_hp: "081234567801",
-    id_admin: 1,
-    avatar: "AR",
-  },
-  {
-    id: 2,
-    nama: "Budi Santoso, S.Pd",
-    email: "budi@tutor.id",
-    no_hp: "081234567802",
-    id_admin: 1,
-    avatar: "BS",
-  },
-  {
-    id: 3,
-    nama: "Citra Dewi, M.Si",
-    email: "citra@tutor.id",
-    no_hp: "081234567803",
-    id_admin: 1,
-    avatar: "CD",
-  },
-  {
-    id: 4,
-    nama: "Dian Pratama, S.T",
-    email: "dian@tutor.id",
-    no_hp: "081234567804",
-    id_admin: 1,
-    avatar: "DP",
-  },
-];
-
-const SISWA: Siswa[] = [
-  {
-    id: 1,
-    id_jenjang: 3,
-    nama: "Rani Kusuma",
-    tanggal_lahir: "2007-04-12",
-    jenis_kelamin: "P",
-    no_hp: "082111111101",
-    email: "rani@mail.com",
-  },
-  {
-    id: 2,
-    id_jenjang: 2,
-    nama: "Farhan Adli",
-    tanggal_lahir: "2009-08-22",
-    jenis_kelamin: "L",
-    no_hp: "082111111102",
-    email: "farhan@mail.com",
-  },
-  {
-    id: 3,
-    id_jenjang: 3,
-    nama: "Sinta Maharani",
-    tanggal_lahir: "2006-11-03",
-    jenis_kelamin: "P",
-    no_hp: "082111111103",
-    email: "sinta@mail.com",
-  },
-  {
-    id: 4,
-    id_jenjang: 1,
-    nama: "Kevin Wijaya",
-    tanggal_lahir: "2013-01-17",
-    jenis_kelamin: "L",
-    no_hp: "082111111104",
-    email: "kevin@mail.com",
-  },
-  {
-    id: 5,
-    id_jenjang: 2,
-    nama: "Nadia Putri",
-    tanggal_lahir: "2010-06-30",
-    jenis_kelamin: "P",
-    no_hp: "082111111105",
-    email: "nadia@mail.com",
-  },
-];
-
-const ADMINS: Admin[] = [
-  {
-    id: 1,
-    nama: "Reza Firmansyah",
-    email: "reza@tutor.id",
-    no_hp: "081300000001",
-  },
-];
-
-const KEAHLIAN: KeahlianGuru[] = [
-  { id: 1, id_guru: 1, id_mapel: 1, id_jenjang: 3 },
-  { id: 2, id_guru: 1, id_mapel: 5, id_jenjang: 3 },
-  { id: 3, id_guru: 2, id_mapel: 1, id_jenjang: 2 },
-  { id: 4, id_guru: 2, id_mapel: 3, id_jenjang: 2 },
-  { id: 5, id_guru: 3, id_mapel: 6, id_jenjang: 3 },
-  { id: 6, id_guru: 4, id_mapel: 1, id_jenjang: 1 },
-];
-
-// Jadwal slot per jam — id_guru langsung (tidak pakai id_keahlian)
-const JADWAL: JadwalKesediaan[] = [
-  {
-    id: 101,
-    id_guru: 1,
-    hari: "Monday",
-    jam_mulai: "14:00",
-    jam_selesai: "15:00",
-    status: "available",
-    id_admin: 1,
-  },
-  {
-    id: 102,
-    id_guru: 1,
-    hari: "Monday",
-    jam_mulai: "15:00",
-    jam_selesai: "16:00",
-    status: "available",
-    id_admin: 1,
-  },
-  {
-    id: 103,
-    id_guru: 1,
-    hari: "Wednesday",
-    jam_mulai: "13:00",
-    jam_selesai: "14:00",
-    status: "available",
-    id_admin: 1,
-  },
-  {
-    id: 104,
-    id_guru: 2,
-    hari: "Tuesday",
-    jam_mulai: "10:00",
-    jam_selesai: "11:00",
-    status: "available",
-    id_admin: 1,
-  },
-  {
-    id: 105,
-    id_guru: 3,
-    hari: "Thursday",
-    jam_mulai: "08:00",
-    jam_selesai: "09:00",
-    status: "filled",
-    id_admin: 1,
-  },
-];
-
-const LES_DATA: Les[] = [
-  {
-    id: 4,
-    id_siswa: 5,
-    id_jadwal: 105,
-    id_mapel: 6,
-    id_jenjang: 3,
-    tanggal_mulai: "2025-01-23T08:00",
-    tanggal_selesai: "2025-01-23T09:00",
-  },
-];
 
 const HARI = [
   "Monday",
@@ -320,7 +142,7 @@ function initials(name: string) {
 
 function formatDate(iso: string) {
   const date = new Date(iso);
-  return date.toLocaleDateString("id-ID", {
+  return date.toLocaleDateString("en-US", {
     weekday: "long", // Menampilkan nama hari (contoh: Rabu)
     day: "numeric",
     month: "long",
@@ -695,6 +517,7 @@ function TopBar({
 
 // Tambahkan parameter db di sini agar komponen ini bisa membaca data dari database
 // ─── Page: Book a Lesson (Student) ───────────────────────────────────────────
+// ─── Page: Book a Lesson (Student) ───────────────────────────────────────────
 function BookLesson({ loggedInId, setActiveLessons, db }: any) {
   const [step, setStep] = useState(1);
   const [selJenjang, setSelJenjang] = useState("");
@@ -708,11 +531,11 @@ function BookLesson({ loggedInId, setActiveLessons, db }: any) {
   } | null>(null);
   const [booked, setBooked] = useState(false);
 
-  const [selSlots, setSelSlots] = useState<JadwalKesediaan[]>([]);
+  const [selSlots, setSelSlots] = useState<any[]>([]);
   const [selPickedDays, setSelPickedDays] = useState<string[]>([]);
 
   // 1. TAMBAHKAN STATE BARU UNTUK JADWAL
-  const [localJadwal, setLocalJadwal] = useState<JadwalKesediaan[]>(db?.jadwal || []);
+  const [localJadwal, setLocalJadwal] = useState<any[]>(db?.jadwal || []);
 
   // 2. FETCH DATA LALU SIMPAN KE STATE localJadwal
   useEffect(() => {
@@ -720,7 +543,7 @@ function BookLesson({ loggedInId, setActiveLessons, db }: any) {
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data)) {
-          setLocalJadwal(data); // <--- SIMPAN DATANYA DI SINI
+          setLocalJadwal(data);
         }
       })
       .catch(err => console.error("Gagal load jadwal:", err));
@@ -728,28 +551,27 @@ function BookLesson({ loggedInId, setActiveLessons, db }: any) {
 
   const filteredGuru = useMemo(() => {
     if (!selJenjang || !selMapel) return [];
-    const validGuruIds = db.keahlian.filter(
+    const validGuruIds = (db?.keahlian || []).filter(
       (k: any) =>
         k.id_jenjang === Number(selJenjang) && k.id_mapel === Number(selMapel),
     ).map((k: any) => k.id_guru);
-    return db.guru.filter((g: any) => validGuruIds.includes(g.id));
+    return (db?.guru || []).filter((g: any) => validGuruIds.includes(g.id));
   }, [selJenjang, selMapel, db]);
 
   // 3. GUNAKAN localJadwal SEBAGAI FILTER, BUKAN db.jadwal
-  const guruJadwal = useMemo<JadwalKesediaan[]>(() => {
+  const guruJadwal = useMemo<any[]>(() => {
     if (selGurus.length === 0) return [];
-    return localJadwal.filter( // <--- PERUBAHAN UTAMANYA DI SINI
-      (j: JadwalKesediaan) => selGurus.includes(j.id_guru) && j.status === "available",
+    return localJadwal.filter(
+      (j: any) => selGurus.includes(j.id_guru) && j.status === "available",
     );
-  }, [selGurus, localJadwal]); 
+  }, [selGurus, localJadwal]);
 
   const availableDays = useMemo(
     () => [...new Set(guruJadwal.map((j) => j.hari))],
     [guruJadwal],
   );
 
-  // FIX: Diberi tipe eksplisit <JadwalKesediaan[]> agar TypeScript tidak merah
-  const slotsForPickedDays = useMemo<JadwalKesediaan[]>(() => {
+  const slotsForPickedDays = useMemo<any[]>(() => {
     return guruJadwal.filter((j) => selPickedDays.includes(j.hari));
   }, [selPickedDays, guruJadwal]);
 
@@ -763,7 +585,7 @@ function BookLesson({ loggedInId, setActiveLessons, db }: any) {
     });
   }
 
-  function toggleSlot(slot: JadwalKesediaan) {
+  function toggleSlot(slot: any) {
     setSelSlots((prev) => {
       const exists = prev.find((s) => s.id === slot.id);
       if (exists) return prev.filter((s) => s.id !== slot.id);
@@ -772,24 +594,9 @@ function BookLesson({ loggedInId, setActiveLessons, db }: any) {
     if (selSlots.length === 0) setStep(4);
   }
 
-  const selMapelObj = db.mapel.find((m: any) => m.id === Number(selMapel));
-  const selJenjangObj = db.jenjang.find((j: any) => j.id === Number(selJenjang));
-  const selGuruObjs = db.guru.filter((g: any) => selGurus.includes(g.id));
-
-  const bookedSlotIds = useMemo(() => {
-    if (selGurus.length === 0 || !startDate || !endDate)
-      return new Set<number>();
-    const bookedIds = new Set<number>();
-    guruJadwal.forEach((j) => {
-      const hasBooking = LES_DATA.some((l) => {
-        if (l.id_jadwal !== j.id) return false;
-        const d = l.tanggal_mulai.split("T")[0];
-        return d >= startDate && d <= endDate;
-      });
-      if (hasBooking) bookedIds.add(j.id);
-    });
-    return bookedIds;
-  }, [selGurus, startDate, endDate, guruJadwal]);
+  const selMapelObj = (db?.mapel || []).find((m: any) => m.id === Number(selMapel));
+  const selJenjangObj = (db?.jenjang || []).find((j: any) => j.id === Number(selJenjang));
+  const selGuruObjs = (db?.guru || []).filter((g: any) => selGurus.includes(g.id));
 
   async function handleBook() {
     if (selSlots.length === 0 || !startDate || !endDate) return;
@@ -849,14 +656,6 @@ function BookLesson({ loggedInId, setActiveLessons, db }: any) {
     selSlots.length > 0 &&
     startDate &&
     endDate;
-  const totalWeeks =
-    startDate && endDate
-      ? Math.ceil(
-        (new Date(endDate).getTime() - new Date(startDate).getTime()) /
-        (7 * 86400000),
-      )
-      : 0;
-  const totalSessions = totalWeeks * selSlots.length;
 
   return (
     <div className="flex gap-0 h-full relative">
@@ -924,7 +723,7 @@ function BookLesson({ loggedInId, setActiveLessons, db }: any) {
                 setSelGurus([]);
                 setSelSlots([]);
               }}
-              options={db.jenjang.map((j: any) => ({
+              options={(db?.jenjang || []).map((j: any) => ({
                 value: String(j.id),
                 label: j.nama,
               }))}
@@ -939,7 +738,7 @@ function BookLesson({ loggedInId, setActiveLessons, db }: any) {
                 setSelGurus([]);
                 setSelSlots([]);
               }}
-              options={db.mapel.map((m: any) => ({
+              options={(db?.mapel || []).map((m: any) => ({
                 value: String(m.id),
                 label: m.nama,
               }))}
@@ -1057,26 +856,19 @@ function BookLesson({ loggedInId, setActiveLessons, db }: any) {
                       <div className="flex gap-2 flex-wrap">
                         {daySlots.map((slot) => {
                           const isSel = selSlots.some((s) => s.id === slot.id);
-                          const isBooked = bookedSlotIds.has(slot.id);
-                          const slotGuru = db.guru.find(
+                          const slotGuru = (db?.guru || []).find(
                             (g: any) => g.id === slot.id_guru,
                           );
                           return (
                             <button
                               key={slot.id}
                               type="button"
-                              onClick={() => !isBooked && toggleSlot(slot)}
-                              disabled={isBooked}
-                              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-semibold transition-all ${isBooked ? "bg-slate-50 border-slate-200 text-slate-400 cursor-not-allowed" : isSel ? "bg-[#4361EE] border-[#4361EE] text-white" : "bg-white border-slate-200 text-slate-600 hover:border-[#4361EE] hover:text-[#4361EE]"}`}
+                              onClick={() => toggleSlot(slot)}
+                              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-semibold transition-all ${isSel ? "bg-[#4361EE] border-[#4361EE] text-white" : "bg-white border-slate-200 text-slate-600 hover:border-[#4361EE] hover:text-[#4361EE]"}`}
                             >
                               <Clock size={11} />
                               {slot.jam_mulai} – {slot.jam_selesai} (
-                              {slotGuru?.nama.split(" ")[0]})
-                              {isBooked && (
-                                <span className="ml-1 text-red-400">
-                                  (Full)
-                                </span>
-                              )}
+                              {slotGuru?.nama.split(" ")[0] || "Guru"})
                               {isSel && <Check size={11} className="ml-1" />}
                             </button>
                           );
@@ -1375,7 +1167,25 @@ function TeacherAvailability({ loggedInId, db }: any) {
   }
 
   function handleRemove(id: number) {
-    setAvailList((p) => p.filter((j) => j.id !== id));
+    if (!window.confirm("Yakin ingin menghapus slot waktu ini?")) return;
+
+    // Kita tembak ke API delete slot (bisa numpang pakai API punya admin karena fungsinya sama)
+    fetch("http://localhost:8080/api/admin/slots/delete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id_jadwal: id })
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data.status === "sukses" || data.message) {
+          setToast("Slot waktu berhasil dihapus dari database!");
+          // Update layar setelah database berhasil dihapus
+          setAvailList((p) => p.filter((j) => j.id !== id));
+        } else {
+          alert("Gagal menghapus. Mungkin slot ini sedang di-booking oleh siswa!");
+        }
+      })
+      .catch(() => alert("Gagal terhubung ke server!"));
   }
 
   // ... (Sisa return UI-nya biarkan sama persis seperti aslinya)
@@ -2407,17 +2217,7 @@ function AdminManageSchedule({ search, db }: any) {
 }
 
 // ─── Dashboard Summary Pages ──────────────────────────────────────────────
-function StudentDashboard({
-  setPage,
-  loggedInName,
-  loggedInId,
-  activeLessons,
-}: {
-  setPage: (p: string) => void;
-  loggedInName: string;
-  loggedInId: number | null;
-  activeLessons: Les[];
-}) {
+function StudentDashboard({ setPage, loggedInName, loggedInId, activeLessons, db }: any) {
   const myLes = activeLessons;
   return (
     <div className="space-y-6">
@@ -2431,44 +2231,12 @@ function StudentDashboard({
       </div>
       <div className="grid grid-cols-3 gap-5">
         {[
-          {
-            label: "Total Lessons",
-            value: String(myLes.length),
-            sub: "All time",
-            color: "bg-indigo-50",
-            iconColor: "text-[#4361EE]",
-            Icon: BookOpen,
-          },
-          {
-            label: "Upcoming",
-            value: String(
-              myLes.filter((l) => new Date(l.tanggal_mulai) > new Date())
-                .length,
-            ),
-            sub: "Scheduled",
-            color: "bg-sky-50",
-            iconColor: "text-sky-500",
-            Icon: Calendar,
-          },
-          {
-            label: "Completed",
-            value: String(
-              myLes.filter((l) => new Date(l.tanggal_mulai) <= new Date())
-                .length,
-            ),
-            sub: "Finished",
-            color: "bg-emerald-50",
-            iconColor: "text-emerald-500",
-            Icon: CheckCircle2,
-          },
+          { label: "Total Lessons", value: String(myLes.length), sub: "All time", color: "bg-indigo-50", iconColor: "text-[#4361EE]", Icon: BookOpen },
+          { label: "Upcoming", value: String(myLes.filter((l: any) => new Date(l.tanggal_mulai) > new Date()).length), sub: "Scheduled", color: "bg-sky-50", iconColor: "text-sky-500", Icon: Calendar },
+          { label: "Completed", value: String(myLes.filter((l: any) => new Date(l.tanggal_mulai) <= new Date()).length), sub: "Finished", color: "bg-emerald-50", iconColor: "text-emerald-500", Icon: CheckCircle2 },
         ].map(({ label, value, sub, color, iconColor, Icon }) => (
-          <div
-            key={label}
-            className="bg-white border border-slate-200 rounded-xl p-5 flex items-center gap-4"
-          >
-            <div
-              className={`w-11 h-11 ${color} rounded-xl flex items-center justify-center flex-shrink-0`}
-            >
+          <div key={label} className="bg-white border border-slate-200 rounded-xl p-5 flex items-center gap-4">
+            <div className={`w-11 h-11 ${color} rounded-xl flex items-center justify-center flex-shrink-0`}>
               <Icon size={20} className={iconColor} />
             </div>
             <div>
@@ -2480,58 +2248,32 @@ function StudentDashboard({
       </div>
       <div className="grid grid-cols-2 gap-5">
         <div className="bg-white border border-slate-200 rounded-xl p-5 space-y-3">
-          <h2 className="text-sm font-semibold text-slate-700">
-            Quick Actions
-          </h2>
+          <h2 className="text-sm font-semibold text-slate-700">Quick Actions</h2>
           <div className="space-y-2">
-            <button
-              onClick={() => setPage("book")}
-              className="w-full flex items-center justify-between px-4 py-3 bg-indigo-50 hover:bg-indigo-100 rounded-xl transition-colors text-[#4361EE] font-medium text-sm"
-            >
-              <span className="flex items-center gap-2">
-                <BookOpen size={16} />
-                Book a New Lesson
-              </span>
-              <ChevronRight size={16} />
+            <button onClick={() => setPage("book")} className="w-full flex items-center justify-between px-4 py-3 bg-indigo-50 hover:bg-indigo-100 rounded-xl transition-colors text-[#4361EE] font-medium text-sm">
+              <span className="flex items-center gap-2"><BookOpen size={16} />Book a New Lesson</span><ChevronRight size={16} />
             </button>
-            <button
-              onClick={() => setPage("mylessons")}
-              className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100 rounded-xl transition-colors text-slate-700 font-medium text-sm"
-            >
-              <span className="flex items-center gap-2">
-                <Calendar size={16} />
-                View All My Lessons
-              </span>
-              <ChevronRight size={16} />
+            <button onClick={() => setPage("mylessons")} className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100 rounded-xl transition-colors text-slate-700 font-medium text-sm">
+              <span className="flex items-center gap-2"><Calendar size={16} />View All My Lessons</span><ChevronRight size={16} />
             </button>
           </div>
         </div>
         <div className="bg-white border border-slate-200 rounded-xl p-5 space-y-3">
           <h2 className="text-sm font-semibold text-slate-700">Recent Lessons</h2>
-          {myLes.slice(0, 2).map((les) => {
-            const jadwal = JADWAL.find((j) => j.id === les.id_jadwal);
-            const guru = GURU.find((g) => g.id === jadwal?.id_guru);
-            const mapel = MAPEL.find((m) => m.id === les.id_mapel);
+          {myLes.slice(0, 2).map((les: any) => {
+            // FIX: BACA DARI DATABASE SQL (db), BUKAN MOCK DATA!
+            const jadwal = (db?.jadwal || []).find((j: any) => j.id === les.id_jadwal);
+            const guru = (db?.guru || []).find((g: any) => g.id === jadwal?.id_guru);
+            const mapel = (db?.mapel || []).find((m: any) => m.id === les.id_mapel);
 
-            // Gunakan fungsi formatDateEn yang sama dengan MyLessons agar bahasa Inggris
-            const dateStr = les.tanggal_mulai
-              ? new Date(les.tanggal_mulai).toLocaleDateString("en-US", {
-                weekday: "short",
-                day: "numeric",
-                month: "long",
-                year: "numeric",
-              })
-              : "-";
+            const dateStr = les.tanggal_mulai ? new Date(les.tanggal_mulai).toLocaleDateString("en-US", { weekday: "short", day: "numeric", month: "long", year: "numeric" }) : "-";
 
             return (
               <div key={les.id} className="flex items-center gap-3 p-3 border border-slate-100 rounded-xl">
                 <Avatar name={guru?.nama ?? "?"} size="sm" />
                 <div>
                   <p className="text-sm font-medium text-slate-700">{mapel?.nama}</p>
-                  {/* Tampilan yang sudah bersih dan bahasa Inggris */}
-                  <p className="text-xs text-slate-400">
-                    {guru?.nama} · {dateStr}
-                  </p>
+                  <p className="text-xs text-slate-400">{guru?.nama} · {dateStr}</p>
                 </div>
               </div>
             );
@@ -2542,15 +2284,26 @@ function StudentDashboard({
   );
 }
 
-function TeacherDashboard({ loggedInId, loggedInName }: any) {
+function TeacherDashboard({ loggedInId, loggedInName, db }: any) {
   const guruId = loggedInId;
+  const [myLessons, setMyLessons] = useState<any[]>([]);
 
-  // --- TAMBAHKAN KEMBALI BARIS INI (YANG HILANG) ---
-  const guruJadwalIds = JADWAL.filter((j) => j.id_guru === guruId).map((j) => j.id);
-  // ------------------------------------------------
+  // Mengambil jadwal les yang aktif langsung dari Backend Java
+  useEffect(() => {
+    if (!guruId) return;
+    fetch(`http://localhost:8080/api/les/guru?id_guru=${guruId}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data)) setMyLessons(data);
+      })
+      .catch((err) => console.error("Gagal mengambil data les guru:", err));
+  }, [guruId]);
 
-  // Baris ini akan otomatis normal kembali dan tidak merah lagi
-  const myLessons = LES_DATA.filter((l) => guruJadwalIds.includes(l.id_jadwal));
+  // Menghitung statistik menggunakan data SQL yang real
+  const totalLessons = myLessons.length;
+  const uniqueStudents = new Set(myLessons.map((l) => l.id_siswa)).size;
+  const availabilitySlots = (db?.jadwal || []).filter((j: any) => j.id_guru === guruId).length;
+  const expertiseAreas = (db?.keahlian || []).filter((k: any) => k.id_guru === guruId).length;
 
   return (
     <div className="space-y-6">
@@ -2562,30 +2315,30 @@ function TeacherDashboard({ loggedInId, loggedInName }: any) {
           Overview of your teaching schedule and students.
         </p>
       </div>
-      {/* ... sisa kode ke bawah biarkan sama ... */}
+
       <div className="grid grid-cols-4 gap-5">
         {[
           {
             label: "Total Lessons",
-            value: String(myLessons.length),
+            value: String(totalLessons),
             Icon: BookOpen,
             color: "bg-indigo-50 text-[#4361EE]",
           },
           {
             label: "Availability Slots",
-            value: String(JADWAL.filter((j) => j.id_guru === guruId).length),
+            value: String(availabilitySlots),
             Icon: Clock,
             color: "bg-violet-50 text-violet-500",
           },
           {
             label: "Unique Students",
-            value: String(new Set(myLessons.map((l) => l.id_siswa)).size),
+            value: String(uniqueStudents),
             Icon: Users,
             color: "bg-sky-50 text-sky-500",
           },
           {
             label: "Expertise Areas",
-            value: String(KEAHLIAN.filter((k) => k.id_guru === guruId).length),
+            value: String(expertiseAreas),
             Icon: GraduationCap,
             color: "bg-emerald-50 text-emerald-500",
           },
@@ -2657,229 +2410,6 @@ function AdminDashboard() {
   );
 }
 
-// ─── Admin: Manage Schedules ──────────────────────────────────────────────
-function AdminSchedules({ search }: { search: string }) {
-  const [drawer, setDrawer] = useState<DrawerMode>(null);
-  const [schedules, setSchedules] = useState<JadwalKesediaan[]>(JADWAL);
-  // FIX: form tidak pakai id_keahlian, tapi id_guru
-  const [form, setForm] = useState<Partial<JadwalKesediaan>>({});
-
-  // FIX: enriched pakai jadwal.id_guru langsung
-  const enriched = schedules
-    .map((j) => {
-      const guru = GURU.find((g) => g.id === j.id_guru);
-      return { ...j, guru };
-    })
-    .filter((r) =>
-      [r.guru?.nama, r.hari]
-        .join(" ")
-        .toLowerCase()
-        .includes(search.toLowerCase()),
-    );
-
-  function handleDelete(id: number) {
-    setSchedules((p) => p.filter((j) => j.id !== id));
-  }
-  function handleSave() {
-    if (
-      drawer === "add" &&
-      form.hari &&
-      form.jam_mulai &&
-      form.jam_selesai &&
-      form.id_guru
-    ) {
-      setSchedules((p) => [
-        ...p,
-        {
-          id: Date.now(),
-          id_guru: form.id_guru!,
-          hari: form.hari!,
-          jam_mulai: form.jam_mulai!,
-          jam_selesai: form.jam_selesai!,
-          status: "available",
-          id_admin: 1,
-        },
-      ]);
-    }
-    setDrawer(null);
-  }
-
-  return (
-    <div className="space-y-5 relative">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-slate-800">Manage Schedules</h1>
-          <p className="text-sm text-slate-500 mt-0.5">
-            View and manage all teacher availability slots.
-          </p>
-        </div>
-        <Button
-          onClick={() => {
-            setForm({});
-            setDrawer("add");
-          }}
-          icon={<Plus size={15} />}
-        >
-          Add Schedule
-        </Button>
-      </div>
-      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-        <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
-          <p className="text-sm text-slate-500">{enriched.length} schedules</p>
-          <Button variant="ghost" size="sm" icon={<Download size={14} />}>
-            Export
-          </Button>
-        </div>
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="bg-slate-50 border-b border-slate-100">
-              {["Teacher", "Day", "Time Slot", "Status", "Actions"].map((h) => (
-                <th
-                  key={h}
-                  className="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider"
-                >
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {enriched.map((r) => (
-              <tr
-                key={r.id}
-                className="border-b border-slate-50 hover:bg-slate-50/80 transition-colors group"
-              >
-                <td className="px-5 py-3.5">
-                  <div className="flex items-center gap-2.5">
-                    <Avatar name={r.guru?.nama ?? "?"} size="sm" />
-                    <span className="font-medium text-slate-800">
-                      {r.guru?.nama ?? "—"}
-                    </span>
-                  </div>
-                </td>
-                <td className="px-5 py-3.5 font-medium text-slate-700">
-                  {r.hari}
-                </td>
-                <td className="px-5 py-3.5 text-slate-600 font-mono text-xs">
-                  {r.jam_mulai} – {r.jam_selesai}
-                </td>
-                <td className="px-5 py-3.5">
-                  <Badge
-                    label={r.status}
-                    variant={r.status === "available" ? "success" : "warning"}
-                  />
-                </td>
-                <td className="px-5 py-3.5">
-                  <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button
-                      onClick={() => handleDelete(r.id)}
-                      className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
-                    >
-                      <Trash2 size={13} />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      {drawer === "add" && (
-        <>
-          <div
-            className="fixed inset-0 bg-black/25 z-30"
-            onClick={() => setDrawer(null)}
-          />
-          <div className="fixed top-0 right-0 h-full w-96 bg-white shadow-2xl z-40 flex flex-col">
-            <div className="px-6 py-5 border-b border-slate-200 flex items-center justify-between">
-              <h2 className="text-base font-bold text-slate-800">
-                Add Availability Slot
-              </h2>
-              <button
-                onClick={() => setDrawer(null)}
-                className="p-1.5 hover:bg-slate-100 rounded-lg"
-              >
-                <X size={16} />
-              </button>
-            </div>
-            <div className="flex-1 px-6 py-5 space-y-4">
-              {/* FIX: pilih guru langsung, tidak pakai keahlian */}
-              <Select
-                label="Teacher"
-                value={String(form.id_guru ?? "")}
-                onChange={(v) => setForm((p) => ({ ...p, id_guru: Number(v) }))}
-                options={GURU.map((g) => ({
-                  value: String(g.id),
-                  label: g.nama,
-                }))}
-                placeholder="Select teacher"
-                required
-              />
-              <Select
-                label="Day"
-                value={form.hari ?? ""}
-                onChange={(v) => setForm((p) => ({ ...p, hari: v }))}
-                options={HARI.map((h) => ({ value: h, label: h }))}
-                placeholder="Select day"
-                required
-              />
-              <div className="grid grid-cols-2 gap-3">
-                <Input
-                  label="Start Time"
-                  type="time"
-                  value={form.jam_mulai ?? ""}
-                  onChange={(v) => setForm((p) => ({ ...p, jam_mulai: v }))}
-                  required
-                />
-                <Input
-                  label="End Time"
-                  type="time"
-                  value={form.jam_selesai ?? ""}
-                  onChange={(v) => setForm((p) => ({ ...p, jam_selesai: v }))}
-                  required
-                />
-              </div>
-            </div>
-            <div className="px-6 py-4 border-t border-slate-200 flex gap-3">
-              <Button
-                variant="secondary"
-                onClick={() => setDrawer(null)}
-                className="flex-1 justify-center"
-              >
-                Cancel
-              </Button>
-              <Button onClick={handleSave} className="flex-1 justify-center">
-                Add Schedule
-              </Button>
-            </div>
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
-// ─── Mock credentials ─────────────────────────────────────────────────────
-const MOCK_ACCOUNTS = [
-  {
-    email: "rani@mail.com",
-    password: "student123",
-    role: "student" as Role,
-    nama: "Rani Kusuma",
-  },
-  {
-    email: "ayu@tutor.id",
-    password: "teacher123",
-    role: "teacher" as Role,
-    nama: "Dr. Ayu Rahmawati",
-  },
-  {
-    email: "reza@tutor.id",
-    password: "admin123",
-    role: "admin" as Role,
-    nama: "Reza Firmansyah",
-  },
-];
 
 // ─── Auth: Login Page ─────────────────────────────────────────────────────
 function LoginPage({
@@ -2899,18 +2429,6 @@ function LoginPage({
     e.preventDefault();
     setError("");
     setLoading(true);
-
-    const mockAccount = MOCK_ACCOUNTS.find(
-      (a) => a.email === email && a.password === password,
-    );
-
-    if (mockAccount) {
-      setTimeout(() => {
-        onLogin(mockAccount.role, mockAccount.nama, 1);
-        setLoading(false);
-      }, 500);
-      return;
-    }
 
     try {
       const response = await fetch("http://localhost:8080/api/login", {
@@ -3614,6 +3132,7 @@ export default function App() {
           loggedInName={loggedInName}
           loggedInId={loggedInId}
           activeLessons={activeLessons}
+          db={db} // <--- TAMBAHKAN BARIS INI
         />
       );
     }
@@ -3623,7 +3142,7 @@ export default function App() {
       if (page === "schedule") {
         return <TeacherSchedule loggedInId={loggedInId} db={db} />;
       }
-      return <TeacherDashboard loggedInId={loggedInId} loggedInName={loggedInName} />;
+      return <TeacherDashboard loggedInId={loggedInId} loggedInName={loggedInName} db={db} />;
     }
     // Bagian Router Halaman Admin di App.tsx Anda
     if (page === "students") return <AdminStudents search={globalSearch} db={db} />;
