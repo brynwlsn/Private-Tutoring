@@ -515,10 +515,8 @@ function TopBar({
   );
 }
 
-// Tambahkan parameter db di sini agar komponen ini bisa membaca data dari database
 // ─── Page: Book a Lesson (Student) ───────────────────────────────────────────
-// ─── Page: Book a Lesson (Student) ───────────────────────────────────────────
-function BookLesson({ loggedInId, setActiveLessons, db }: any) {
+function BookLesson({ loggedInId, setActiveLessons, db, setPage }: any) {
   const [step, setStep] = useState(1);
   const [selJenjang, setSelJenjang] = useState("");
   const [selMapel, setSelMapel] = useState("");
@@ -534,20 +532,57 @@ function BookLesson({ loggedInId, setActiveLessons, db }: any) {
   const [selSlots, setSelSlots] = useState<any[]>([]);
   const [selPickedDays, setSelPickedDays] = useState<string[]>([]);
 
-  // 1. TAMBAHKAN STATE BARU UNTUK JADWAL
   const [localJadwal, setLocalJadwal] = useState<any[]>(db?.jadwal || []);
+  const [bookedLessons, setBookedLessons] = useState<any[]>([]);
 
-  // 2. FETCH DATA LALU SIMPAN KE STATE localJadwal
+  // Fetch semua jadwal template
   useEffect(() => {
     fetch(`http://localhost:8080/api/jadwal?t=${new Date().getTime()}`)
       .then(res => res.json())
       .then(data => {
-        if (Array.isArray(data)) {
-          setLocalJadwal(data);
-        }
+        if (Array.isArray(data)) setLocalJadwal(data);
       })
       .catch(err => console.error("Gagal load jadwal:", err));
   }, []);
+
+  // FITUR BARU: Fetch jadwal les guru yang sedang aktif untuk cek bentrok
+  useEffect(() => {
+    if (selGurus.length === 0) {
+      setBookedLessons([]);
+      return;
+    }
+    Promise.all(
+      selGurus.map(id => fetch(`http://localhost:8080/api/les/guru?id_guru=${id}`).then(r => r.json()))
+    ).then(results => {
+      setBookedLessons(results.flat());
+    }).catch(err => console.error("Gagal load jadwal aktif guru", err));
+  }, [selGurus]);
+
+  // FITUR BARU: Logika Overlap (Otomatis kunci slot yang bentrok)
+  const bookedSlotIds = useMemo(() => {
+    if (!startDate || !endDate) return new Set<number>();
+    const ids = new Set<number>();
+
+    const startReq = new Date(startDate);
+    const endReq = new Date(endDate);
+    startReq.setHours(0, 0, 0, 0);
+    endReq.setHours(23, 59, 59, 999);
+
+    bookedLessons.forEach(les => {
+      if (!les.tanggal_mulai || !les.tanggal_selesai) return;
+
+      const startDB = new Date(les.tanggal_mulai.split("T")[0]);
+      const endDB = new Date(les.tanggal_selesai.split("T")[0]);
+      startDB.setHours(0, 0, 0, 0);
+      endDB.setHours(23, 59, 59, 999);
+
+      // Rumus Overlap: StartA <= EndB && EndA >= StartB
+      if (startDB <= endReq && endDB >= startReq) {
+        ids.add(les.id_jadwal);
+      }
+    });
+    return ids;
+  }, [startDate, endDate, bookedLessons]);
 
   const filteredGuru = useMemo(() => {
     if (!selJenjang || !selMapel) return [];
@@ -558,12 +593,9 @@ function BookLesson({ loggedInId, setActiveLessons, db }: any) {
     return (db?.guru || []).filter((g: any) => validGuruIds.includes(g.id));
   }, [selJenjang, selMapel, db]);
 
-  // 3. GUNAKAN localJadwal SEBAGAI FILTER, BUKAN db.jadwal
   const guruJadwal = useMemo<any[]>(() => {
     if (selGurus.length === 0) return [];
-    return localJadwal.filter(
-      (j: any) => selGurus.includes(j.id_guru) && j.status === "available",
-    );
+    return localJadwal.filter((j: any) => selGurus.includes(j.id_guru));
   }, [selGurus, localJadwal]);
 
   const availableDays = useMemo(
@@ -591,7 +623,6 @@ function BookLesson({ loggedInId, setActiveLessons, db }: any) {
       if (exists) return prev.filter((s) => s.id !== slot.id);
       return [...prev, slot];
     });
-    if (selSlots.length === 0) setStep(4);
   }
 
   const selMapelObj = (db?.mapel || []).find((m: any) => m.id === Number(selMapel));
@@ -641,6 +672,11 @@ function BookLesson({ loggedInId, setActiveLessons, db }: any) {
           .then((res) => res.json())
           .then((data) => setActiveLessons(data));
       }
+
+      setTimeout(() => {
+        setPage("mylessons");
+      }, 1500);
+
     } catch {
       setToast({
         msg: "Server tidak merespon. Pastikan Backend Java berjalan.",
@@ -677,8 +713,8 @@ function BookLesson({ loggedInId, setActiveLessons, db }: any) {
           {[
             "Education Level & Subject",
             "Choose Teacher",
-            "Availability",
             "Schedule Details",
+            "Availability",
           ].map((s, i) => (
             <div key={s} className="flex items-center flex-1 last:flex-none">
               <button
@@ -801,6 +837,42 @@ function BookLesson({ loggedInId, setActiveLessons, db }: any) {
             {selGurus.length > 0 && (
               <div className="flex justify-end pt-2">
                 <Button onClick={() => setStep(3)} size="sm">
+                  Next: Schedule Details <ChevronRight size={14} />
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Step 3: Pindah ke sini agar siswa mengisi tanggal dulu */}
+        {selGurus.length > 0 && (
+          <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-5">
+            <h2 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+              <span className="w-5 h-5 bg-[#4361EE] text-white rounded-full flex items-center justify-center text-xs">
+                3
+              </span>{" "}
+              Schedule Details
+            </h2>
+            <div className="grid grid-cols-2 gap-4">
+              <Input
+                label="Start Date"
+                type="date"
+                value={startDate}
+                onChange={setStartDate}
+                required
+              />
+              <Input
+                label="End Date"
+                type="date"
+                value={endDate}
+                onChange={setEndDate}
+                min={startDate}
+                required
+              />
+            </div>
+            {startDate && endDate && (
+              <div className="flex justify-end pt-2">
+                <Button onClick={() => setStep(4)} size="sm">
                   Next: Availability <ChevronRight size={14} />
                 </Button>
               </div>
@@ -808,12 +880,12 @@ function BookLesson({ loggedInId, setActiveLessons, db }: any) {
           </div>
         )}
 
-        {/* Step 3 */}
-        {selGurus.length > 0 && (
+        {/* Step 4: Pilih Jam dengan validasi dinamis */}
+        {startDate && endDate && (
           <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-5">
             <h2 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
               <span className="w-5 h-5 bg-[#4361EE] text-white rounded-full flex items-center justify-center text-xs">
-                3
+                4
               </span>{" "}
               Teacher Availability
             </h2>
@@ -845,9 +917,7 @@ function BookLesson({ loggedInId, setActiveLessons, db }: any) {
                   Pilih Slot (1 jam) <span className="text-red-400">*</span>
                 </p>
                 {selPickedDays.map((day) => {
-                  const daySlots = slotsForPickedDays.filter(
-                    (s) => s.hari === day,
-                  );
+                  const daySlots = slotsForPickedDays.filter((s) => s.hari === day);
                   return (
                     <div key={day} className="space-y-2">
                       <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
@@ -856,19 +926,21 @@ function BookLesson({ loggedInId, setActiveLessons, db }: any) {
                       <div className="flex gap-2 flex-wrap">
                         {daySlots.map((slot) => {
                           const isSel = selSlots.some((s) => s.id === slot.id);
-                          const slotGuru = (db?.guru || []).find(
-                            (g: any) => g.id === slot.id_guru,
-                          );
+                          // Cek apakah slot ini dibooking pada rentang tanggal yang dipilih
+                          const isBooked = bookedSlotIds.has(slot.id);
+                          const slotGuru = (db?.guru || []).find((g: any) => g.id === slot.id_guru);
+
                           return (
                             <button
                               key={slot.id}
                               type="button"
-                              onClick={() => toggleSlot(slot)}
-                              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-semibold transition-all ${isSel ? "bg-[#4361EE] border-[#4361EE] text-white" : "bg-white border-slate-200 text-slate-600 hover:border-[#4361EE] hover:text-[#4361EE]"}`}
+                              onClick={() => !isBooked && toggleSlot(slot)}
+                              disabled={isBooked}
+                              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-semibold transition-all ${isBooked ? "bg-slate-50 border-slate-200 text-slate-400 cursor-not-allowed" : isSel ? "bg-[#4361EE] border-[#4361EE] text-white" : "bg-white border-slate-200 text-slate-600 hover:border-[#4361EE] hover:text-[#4361EE]"}`}
                             >
                               <Clock size={11} />
-                              {slot.jam_mulai} – {slot.jam_selesai} (
-                              {slotGuru?.nama.split(" ")[0] || "Guru"})
+                              {slot.jam_mulai?.substring(0, 5)} – {slot.jam_selesai?.substring(0, 5)} ({slotGuru?.nama.split(" ")[0] || "Guru"})
+                              {isBooked && <span className="ml-1 text-red-400">(Full)</span>}
                               {isSel && <Check size={11} className="ml-1" />}
                             </button>
                           );
@@ -878,51 +950,13 @@ function BookLesson({ loggedInId, setActiveLessons, db }: any) {
                   );
                 })}
                 {selSlots.length > 0 && (
-                  <div className="flex justify-end">
-                    <Button onClick={() => setStep(4)} size="sm">
-                      Next: Schedule Details <ChevronRight size={14} />
+                  <div className="flex justify-end pt-4 border-t border-slate-100">
+                    <Button onClick={handleBook} disabled={booked} icon={<BookOpen size={15} />}>
+                      {booked ? "Booked!" : "Confirm Recurring Booking"}
                     </Button>
                   </div>
                 )}
               </div>
-            )}
-          </div>
-        )}
-
-        {/* Step 4 */}
-        {selSlots.length > 0 && (
-          <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-5">
-            <h2 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-              <span className="w-5 h-5 bg-[#4361EE] text-white rounded-full flex items-center justify-center text-xs">
-                4
-              </span>{" "}
-              Schedule Details
-            </h2>
-            <div className="grid grid-cols-2 gap-4">
-              <Input
-                label="Start Date"
-                type="date"
-                value={startDate}
-                onChange={setStartDate}
-                required
-              />
-              <Input
-                label="End Date"
-                type="date"
-                value={endDate}
-                onChange={setEndDate}
-                min={startDate}
-                required
-              />
-            </div>
-            {summaryComplete && (
-              <Button
-                onClick={handleBook}
-                disabled={booked}
-                icon={<BookOpen size={15} />}
-              >
-                {booked ? "Booked!" : "Confirm Recurring Booking"}
-              </Button>
             )}
           </div>
         )}
@@ -950,20 +984,11 @@ function BookLesson({ loggedInId, setActiveLessons, db }: any) {
             </div>
             <div className="p-5 space-y-4">
               <SummaryRow
-                icon={<UserCheck size={14} />}
-                label="Teacher"
-                value={
-                  selGuruObjs.length > 0
-                    ? selGuruObjs.map((g: any) => g.nama).join(", ")
-                    : "Not selected"
-                }
-              />
-              <SummaryRow
                 icon={<Clock size={14} />}
-                label="Time Window"
+                label="Time Slots"
                 value={
                   selSlots.length > 0
-                    ? `${selSlots.length} slot dipilih`
+                    ? selSlots.map((s) => `${s.hari} ${s.jam_mulai?.substring(0, 5)}`).join(", ")
                     : "Not selected"
                 }
               />
@@ -982,12 +1007,10 @@ function BookLesson({ loggedInId, setActiveLessons, db }: any) {
                 />
                 <SummaryRow
                   icon={<Clock size={14} />}
-                  label="Slots"
+                  label="Time Slots"
                   value={
                     selSlots.length > 0
-                      ? selSlots
-                        .map((s) => `${s.hari} ${s.jam_mulai}`)
-                        .join(", ")
+                      ? selSlots.map((s) => `${s.hari} ${s.jam_mulai}`).join(", ")
                       : "Not selected"
                   }
                 />
@@ -1102,13 +1125,22 @@ function TeacherAvailability({ loggedInId, db }: any) {
   const [jamSelesai, setJamSelesai] = useState("");
   const [toast, setToast] = useState<string | null>(null);
 
-  // FIX 1: Selalu ambil data ter-update dari server saat halaman ini dibuka.
-  // Tambahan `?_=${new Date().getTime()}` adalah trik agar browser tidak memakai cache lama.
   useEffect(() => {
-    fetch(`http://localhost:8080/api/jadwal?_=${new Date().getTime()}`)
+    // Kita pakai API admin agar bisa mendeteksi status is_booked yang sebenarnya
+    fetch(`http://localhost:8080/api/admin/slots?_=${new Date().getTime()}`)
       .then((res) => res.json())
       .then((data) => {
-        setAvailList(data.filter((j: any) => j.id_guru === guruId));
+        const mappedData = data
+          .filter((s: any) => s.id_guru === guruId)
+          .map((s: any) => ({
+            id: s.id_jadwal,
+            hari: s.hari,
+            jam_mulai: s.jam_mulai,
+            jam_selesai: s.jam_selesai,
+            id_guru: s.id_guru,
+            status: s.is_booked === 1 ? "booked" : "available"
+          }));
+        setAvailList(mappedData);
       })
       .catch((err) => console.error("Gagal mengambil jadwal:", err));
   }, [guruId]);
@@ -1260,7 +1292,7 @@ function TeacherAvailability({ loggedInId, db }: any) {
                       {j.hari}
                     </p>
                     <p className="text-xs text-slate-400">
-                      {j.jam_mulai} – {j.jam_selesai}
+                      {j.jam_mulai?.substring(0, 5)} – {j.jam_selesai?.substring(0, 5)}
                     </p>
                   </div>
                   <Badge
@@ -1268,12 +1300,16 @@ function TeacherAvailability({ loggedInId, db }: any) {
                     variant={j.status === "available" ? "success" : "warning"}
                   />
                 </div>
-                <button
-                  onClick={() => handleRemove(j.id)}
-                  className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
-                >
-                  <Trash2 size={15} />
-                </button>
+                {j.status === "available" ? (
+                  <button
+                    onClick={() => handleRemove(j.id)}
+                    className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                ) : (
+                  <span className="text-xs text-slate-400 italic mt-1">Locked</span>
+                )}
               </div>
             ))}
           </div>
@@ -3118,6 +3154,7 @@ export default function App() {
             loggedInId={loggedInId}
             setActiveLessons={setActiveLessons}
             db={db}
+            setPage={setPage}
           />
         );
       if (page === "mylessons")

@@ -4,21 +4,21 @@
 
 -- 1. Jenjang (Ditambah 2 agar minimal 5)
 INSERT INTO Jenjang (id_jenjang, nama_jenjang) VALUES 
-(1, 'SD'), 
-(2, 'SMP'), 
-(3, 'SMA'),
-(4, 'TK'),
-(5, 'UMUM');
+(1, 'Elementary School'), 
+(2, 'Junior High School'), 
+(3, 'Senior High School'),
+(4, 'Kindergarten'),
+(5, 'General');
 
 -- 2. Mata Pelajaran (Ditambah 2 agar lebih variatif)
 INSERT INTO Mata_pelajaran (id_mapel, nama_mapel) VALUES 
-(1, 'Matematika'), 
-(2, 'Bahasa Indonesia'), 
-(3, 'Fisika'), 
-(4, 'Kimia'), 
-(5, 'Bahasa Inggris'),
-(6, 'Biologi'),
-(7, 'Ekonomi');
+(1, 'Mathematics'), 
+(2, 'Indonesian'), 
+(3, 'Physics'), 
+(4, 'Chemistry'), 
+(5, 'English'),
+(6, 'Biology'),
+(7, 'Economy');
 
 -- 3. Admin (Sudah 5 data)
 INSERT INTO Admin (id_admin, nama, email, no_hp, password) VALUES 

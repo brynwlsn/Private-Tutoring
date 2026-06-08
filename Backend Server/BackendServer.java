@@ -357,57 +357,48 @@ public class BackendServer {
         }
     }
 
-    static class GetJadwalHandler implements HttpHandler {
+ static class GetJadwalHandler implements HttpHandler {
         @Override
         public void handle(HttpExchange exchange) throws IOException {
-            aturCORS(exchange);
+            exchange.getResponseHeaders().set("Access-Control-Allow-Origin", "*");
+            exchange.getResponseHeaders().set("Access-Control-Allow-Methods", "GET, OPTIONS");
+
             if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
                 exchange.sendResponseHeaders(204, -1);
                 return;
             }
-            if (!"GET".equalsIgnoreCase(exchange.getRequestMethod())) {
-                exchange.sendResponseHeaders(405, -1);
-                return;
-            }
 
-            try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD)) {
-                String sql = "SELECT j.id_jadwal, j.hari, " +
-                        "CONVERT(varchar(5), j.jam_mulai, 108) AS jam_mulai, " +
-                        "CONVERT(varchar(5), j.jam_selesai, 108) AS jam_selesai, " +
-                        "j.id_guru, j.id_admin, " +
-                        "CASE WHEN COUNT(d.id_jadwal) > 0 THEN 'filled' ELSE 'available' END AS status " +
-                        "FROM Jadwal_Kesediaan_Guru j " +
-                        "LEFT JOIN Detail_Daftar_Les d ON j.id_jadwal = d.id_jadwal " +
-                        "GROUP BY j.id_jadwal, j.hari, j.jam_mulai, j.jam_selesai, j.id_guru, j.id_admin " +
-                        "ORDER BY j.hari, j.jam_mulai";
+            // MANTRA AJAIB 1: Selalu set status jadi 'available' agar muncul di layar siswa
+            String sql = "SELECT id_jadwal, hari, jam_mulai, jam_selesai, id_guru, 'available' AS status FROM Jadwal_Kesediaan_Guru";
 
-                PreparedStatement ps = conn.prepareStatement(sql);
-                ResultSet rs = ps.executeQuery();
+            try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD);
+                 PreparedStatement ps = conn.prepareStatement(sql);
+                 ResultSet rs = ps.executeQuery()) {
 
-                StringBuilder json = new StringBuilder("[");
-                boolean first = true;
+                StringBuilder sb = new StringBuilder("[");
                 while (rs.next()) {
-                    if (!first)
-                        json.append(",");
-                    json.append("{")
-                            .append("\"id\":").append(rs.getInt("id_jadwal")).append(",")
-                            .append("\"hari\":\"").append(escapeJson(rs.getString("hari"))).append("\",")
-                            .append("\"jam_mulai\":\"").append(escapeJson(rs.getString("jam_mulai"))).append("\",")
-                            .append("\"jam_selesai\":\"").append(escapeJson(rs.getString("jam_selesai"))).append("\",")
-                            .append("\"id_guru\":")
-                            .append(rs.getObject("id_guru") != null ? rs.getInt("id_guru") : "null").append(",")
-                            .append("\"id_admin\":")
-                            .append(rs.getObject("id_admin") != null ? rs.getInt("id_admin") : "null").append(",")
-                            .append("\"status\":\"").append(rs.getString("status")).append("\"")
-                            .append("}");
-                    first = false;
+                    if (sb.length() > 1) sb.append(",");
+                    sb.append(String.format(
+                        "{\"id\":%d,\"hari\":\"%s\",\"jam_mulai\":\"%s\",\"jam_selesai\":\"%s\",\"id_guru\":%d,\"status\":\"%s\"}",
+                        rs.getInt("id_jadwal"), rs.getString("hari"), rs.getString("jam_mulai"),
+                        rs.getString("jam_selesai"), rs.getInt("id_guru"), rs.getString("status")));
                 }
-                json.append("]");
-                kirimResponJSON(exchange, 200, json.toString());
+                sb.append("]");
 
+                String response = sb.toString();
+                exchange.getResponseHeaders().set("Content-Type", "application/json");
+                exchange.sendResponseHeaders(200, response.length());
+                OutputStream os = exchange.getResponseBody();
+                os.write(response.getBytes());
+                os.close();
             } catch (Exception e) {
                 e.printStackTrace();
-                kirimResponJSON(exchange, 500, "[]");
+                String error = "{\"error\":\"" + e.getMessage().replace("\"", "\\\"") + "\"}";
+                exchange.getResponseHeaders().set("Content-Type", "application/json");
+                exchange.sendResponseHeaders(500, error.length());
+                OutputStream os = exchange.getResponseBody();
+                os.write(error.getBytes());
+                os.close();
             }
         }
     }
@@ -976,108 +967,94 @@ public class BackendServer {
         }
     }
 
-    static class BookingHandler implements HttpHandler {
+static class BookingHandler implements HttpHandler {
         @Override
         public void handle(HttpExchange exchange) throws IOException {
-            aturCORS(exchange);
+            exchange.getResponseHeaders().set("Access-Control-Allow-Origin", "*");
+            exchange.getResponseHeaders().set("Access-Control-Allow-Methods", "POST, OPTIONS");
+            exchange.getResponseHeaders().set("Access-Control-Allow-Headers", "Content-Type");
+
             if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
                 exchange.sendResponseHeaders(204, -1);
                 return;
             }
 
             if ("POST".equalsIgnoreCase(exchange.getRequestMethod())) {
-                String jsonInput = bacaBody(exchange);
+                InputStreamReader isr = new InputStreamReader(exchange.getRequestBody(), "utf-8");
+                BufferedReader br = new BufferedReader(isr);
+                String body = br.lines().collect(Collectors.joining());
 
                 try {
-                    int idSiswa = Integer.parseInt(ambilNilaiJSON(jsonInput, "id_siswa"));
-                    int idJadwal = Integer.parseInt(ambilNilaiJSON(jsonInput, "id_jadwal"));
-                    int idMapelReq = Integer.parseInt(ambilNilaiJSON(jsonInput, "id_mapel")); // Tambahkan ini
-                    int idJenjangReq = Integer.parseInt(ambilNilaiJSON(jsonInput, "id_jenjang"));
+                    int idSiswa = Integer.parseInt(ambilNilaiJSON(body, "id_siswa").replaceAll("[^0-9]", ""));
+                    int idJadwal = Integer.parseInt(ambilNilaiJSON(body, "id_jadwal").replaceAll("[^0-9]", ""));
+                    int idMapel = Integer.parseInt(ambilNilaiJSON(body, "id_mapel").replaceAll("[^0-9]", ""));
+                    int idJenjang = Integer.parseInt(ambilNilaiJSON(body, "id_jenjang").replaceAll("[^0-9]", ""));
 
-                    String tglMulaiRaw = ambilNilaiJSON(jsonInput, "tanggal_mulai");
-                    String tglSelesaiRaw = ambilNilaiJSON(jsonInput, "tanggal_selesai");
+                    // Tanggal dari React bentuknya "YYYY-MM-DDTHH:mm", kita ambil YYYY-MM-DD saja
+                    String tglMulai = ambilNilaiJSON(body, "tanggal_mulai").split("T")[0];
+                    String tglSelesai = ambilNilaiJSON(body, "tanggal_selesai").split("T")[0];
 
-                    String tglMulaiStr = tglMulaiRaw.contains("T") ? tglMulaiRaw.split("T")[0] : tglMulaiRaw;
-                    String tglSelesaiStr = tglSelesaiRaw.contains("T") ? tglSelesaiRaw.split("T")[0] : tglSelesaiRaw;
+                    try(Connection conn = DriverManager.getConnection(URL, USER, PASSWORD)) {
+                        
+                        // MANTRA AJAIB 2: Cek Bentrok Tanggal (Overlap Detection)
+                        // Rumus Overlap: (Tgl_Mulai_DB <= Tgl_Selesai_Req) AND (Tgl_Selesai_DB >= Tgl_Mulai_Req)
+                        String cekSql = "SELECT COUNT(*) AS bentrok FROM Detail_Daftar_Les d " +
+                                        "JOIN Les l ON d.id_les = l.id_les " +
+                                        "WHERE d.id_jadwal = ? AND (l.tgl_mulai <= ? AND l.tgl_selesai >= ?)";
+                        PreparedStatement cekPs = conn.prepareStatement(cekSql);
+                        cekPs.setInt(1, idJadwal);
+                        cekPs.setString(2, tglSelesai); // Req End
+                        cekPs.setString(3, tglMulai);   // Req Start
+                        ResultSet rsCek = cekPs.executeQuery();
 
-                    java.sql.Date tglMulai;
-                    java.sql.Date tglSelesai;
-                    try {
-                        tglMulai = java.sql.Date.valueOf(tglMulaiStr);
-                        tglSelesai = java.sql.Date.valueOf(tglSelesaiStr);
-                    } catch (Exception dateEx) {
-                        tglMulai = new java.sql.Date(System.currentTimeMillis());
-                        tglSelesai = new java.sql.Date(System.currentTimeMillis());
+                        if (rsCek.next() && rsCek.getInt("bentrok") > 0) {
+                            // JIKA BENTROK, TOLAK DAN KIRIM PESAN ERROR KE REACT
+                            String errorResp = "{\"status\":\"gagal\",\"pesan\":\"Slot waktu ini sudah di-booking orang lain pada rentang tanggal tersebut. Silakan pilih jadwal lain.\"}";
+                            kirimRespon(exchange, 400, errorResp);
+                            return;
+                        }
+
+                        // JIKA AMAN, LANJUT INSERT KE TABEL LES
+                        int idLes = (int) (Math.random() * 1000000);
+                        String insertLes = "INSERT INTO Les (id_les, tgl_mulai, tgl_selesai, id_siswa) VALUES (?, ?, ?, ?)";
+                        PreparedStatement psLes = conn.prepareStatement(insertLes);
+                        psLes.setInt(1, idLes);
+                        psLes.setString(2, tglMulai);
+                        psLes.setString(3, tglSelesai);
+                        psLes.setInt(4, idSiswa);
+                        psLes.executeUpdate();
+
+                        // LANJUT INSERT KE TABEL DETAIL
+                        int idDetail = (int) (Math.random() * 1000000);
+                        String insertDetail = "INSERT INTO Detail_Daftar_Les (id_detail, id_les, id_jadwal, id_mapel, id_jenjang) VALUES (?, ?, ?, ?, ?)";
+                        PreparedStatement psDetail = conn.prepareStatement(insertDetail);
+                        psDetail.setInt(1, idDetail);
+                        psDetail.setInt(2, idLes);
+                        psDetail.setInt(3, idJadwal);
+                        psDetail.setInt(4, idMapel);
+                        psDetail.setInt(5, idJenjang);
+                        psDetail.executeUpdate();
+
+                        kirimRespon(exchange, 200, "{\"status\":\"sukses\",\"pesan\":\"Berhasil booking les!\"}");
                     }
-
-                    int newIdLes = (int) (System.currentTimeMillis() % 100000) + (int) (Math.random() * 50000);
-                    int newIdDetail = (int) (System.currentTimeMillis() % 100000) + (int) (Math.random() * 50000);
-
-                    try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD)) {
-
-                        String sqlCek = "SELECT COUNT(*) AS total_bentrok " +
-                                "FROM Les l " +
-                                "JOIN Detail_Daftar_Les ddl ON l.id_les = ddl.id_les " +
-                                "WHERE ddl.id_jadwal = ? " +
-                                "AND (l.tgl_mulai <= ? AND l.tgl_selesai >= ?)";
-
-                        try (PreparedStatement pstmtCek = conn.prepareStatement(sqlCek)) {
-                            pstmtCek.setInt(1, idJadwal);
-                            pstmtCek.setDate(2, tglSelesai);
-                            pstmtCek.setDate(3, tglMulai);
-                            ResultSet rsJadwal = pstmtCek.executeQuery();
-                            if (rsJadwal.next() && rsJadwal.getInt("total_bentrok") > 0) {
-                                kirimResponJSON(exchange, 400,
-                                        "{\"status\":\"gagal\", \"pesan\":\"Slot jadwal ini sudah filled pada rentang tanggal tersebut!\"}");
-                                return;
-                            }
-                        }
-
-                        // Insert tabel induk Les
-                        String sqlInsertLes = "INSERT INTO Les (id_les, tgl_mulai, tgl_selesai, id_siswa) VALUES (?, ?, ?, ?)";
-                        try (PreparedStatement pstmtLes = conn.prepareStatement(sqlInsertLes)) {
-                            pstmtLes.setInt(1, newIdLes);
-                            pstmtLes.setDate(2, tglMulai);
-                            pstmtLes.setDate(3, tglSelesai);
-                            pstmtLes.setInt(4, idSiswa);
-                            pstmtLes.executeUpdate();
-                        }
-
-                        // Ambil id_mapel dan id_jenjang dari keahlian guru di jadwal tersebut
-                        // int idMapel = 1;
-                        // int idJenjang = 1;
-                        // String sqlGetMaster = "SELECT k.id_mapel, k.id_jenjang " +
-                        // "FROM Jadwal_Kesediaan_Guru j " +
-                        // "JOIN Keahlian_Guru k ON j.id_guru = k.id_guru " +
-                        // "WHERE j.id_jadwal = ?";
-                        // try (PreparedStatement pstmtMaster = conn.prepareStatement(sqlGetMaster)) {
-                        // pstmtMaster.setInt(1, idJadwal);
-                        // ResultSet rsM = pstmtMaster.executeQuery();
-                        // if (rsM.next()) {
-                        // idMapel = rsM.getInt("id_mapel");
-                        // idJenjang = rsM.getInt("id_jenjang");
-                        // }
-                        // }
-
-                        // Insert Detail_Daftar_Les
-                        String sqlInsertDetail = "INSERT INTO Detail_Daftar_Les (id_detail, id_les, id_jadwal, id_mapel, id_jenjang) VALUES (?, ?, ?, ?, ?)";
-                        try (PreparedStatement pstmtDetail = conn.prepareStatement(sqlInsertDetail)) {
-                            pstmtDetail.setInt(1, newIdDetail);
-                            pstmtDetail.setInt(2, newIdLes);
-                            pstmtDetail.setInt(3, idJadwal);
-                            pstmtDetail.setInt(4, idMapelReq); // Gunakan data dari React
-                            pstmtDetail.setInt(5, idJenjangReq); // Gunakan data dari React
-                            pstmtDetail.executeUpdate();
-                        }
-                    }
-
-                    kirimResponJSON(exchange, 200, "{\"status\":\"sukses\"}");
-
                 } catch (Exception e) {
                     e.printStackTrace();
-                    kirimResponJSON(exchange, 400, "{\"status\":\"gagal\", \"pesan\":\"" + e.getMessage() + "\"}");
+                    kirimRespon(exchange, 500, "{\"status\":\"gagal\",\"pesan\":\"" + e.getMessage().replace("\"", "\\\"") + "\"}");
                 }
             }
+        }
+
+        private String ambilNilaiJSON(String json, String key) {
+            try { return json.split("\"" + key + "\":\\s*\"?")[1].split("[\",}]")[0].trim(); } 
+            catch (Exception e) { return ""; }
+        }
+
+        private void kirimRespon(HttpExchange exchange, int statusCode, String response) throws IOException {
+            exchange.getResponseHeaders().set("Content-Type", "application/json");
+            exchange.sendResponseHeaders(statusCode, response.length());
+            OutputStream os = exchange.getResponseBody();
+            os.write(response.getBytes());
+            os.close();
         }
     }
 
